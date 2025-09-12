@@ -1,0 +1,382 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  phone             String?   @unique
+  password          String
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime?
+  isEmailVerified   Boolean   @default(false)
+  isPhoneVerified   Boolean   @default(false)
+  role              UserRole  @default(CUSTOMER)
+  preferences       Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  bookings          Booking[]
+  paymentMethods    PaymentMethod[]
+  wishlist          Wishlist[]
+  notifications     Notification[]
+  reviews           Review[]
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  ORGANIZER
+  STAFF
+}
+
+// Venue Management
+model Venue {
+  id                String    @id @default(cuid())
+  name              String
+  address           String
+  city              String
+  country           String    @default("Cyprus")
+  postalCode        String?
+  latitude          Float?
+  longitude         Float?
+  capacity          Int
+  description       String?
+  amenities         Json?
+  images            String[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  events            Event[]
+  sections          VenueSection[]
+}
+
+model VenueSection {
+  id                String    @id @default(cuid())
+  venueId           String
+  name              String
+  capacity          Int
+  rowCount          Int?
+  seatsPerRow       Int?
+  seatMap           Json?
+  
+  // Relations
+  venue             Venue     @relation(fields: [venueId], references: [id])
+  tickets           Ticket[]
+}
+
+// Event Management
+model Event {
+  id                String    @id @default(cuid())
+  title             String
+  slug              String    @unique
+  description       String
+  shortDescription  String?
+  category          EventCategory
+  status            EventStatus @default(DRAFT)
+  venueId           String
+  eventDate         DateTime
+  doorsOpen         DateTime?
+  startTime         DateTime
+  endTime           DateTime?
+  capacity          Int
+  images            String[]
+  videos            String[]
+  tags              String[]
+  featured          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  publishedAt       DateTime?
+  
+  // Relations
+  venue             Venue     @relation(fields: [venueId], references: [id])
+  ticketTypes       TicketType[]
+  bookings          Booking[]
+  reviews           Review[]
+}
+
+enum EventCategory {
+  CONCERT
+  THEATER
+  FESTIVAL
+  SPORTS
+  COMEDY
+  CULTURAL
+  EXHIBITION
+  OTHER
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  SOLD_OUT
+  CANCELLED
+  COMPLETED
+}
+
+// Ticket Management
+model TicketType {
+  id                String    @id @default(cuid())
+  eventId           String
+  name              String
+  description       String?
+  price             Decimal
+  currency          String    @default("EUR")
+  quantity          Int
+  sold              Int       @default(0)
+  maxPerOrder       Int       @default(10)
+  earlyBirdPrice    Decimal?
+  earlyBirdDeadline DateTime?
+  isActive          Boolean   @default(true)
+  
+  // Relations
+  event             Event     @relation(fields: [eventId], references: [id])
+  tickets           Ticket[]
+}
+
+model Ticket {
+  id                String    @id @default(cuid())
+  bookingId         String
+  ticketTypeId      String
+  sectionId         String?
+  seatNumber        String?
+  qrCode            String    @unique
+  status            TicketStatus @default(VALID)
+  validatedAt       DateTime?
+  validatedBy       String?
+  
+  // Relations
+  booking           Booking   @relation(fields: [bookingId], references: [id])
+  ticketType        TicketType @relation(fields: [ticketTypeId], references: [id])
+  section           VenueSection? @relation(fields: [sectionId], references: [id])
+}
+
+enum TicketStatus {
+  VALID
+  USED
+  CANCELLED
+  TRANSFERRED
+  REFUNDED
+}
+
+// Booking Management
+model Booking {
+  id                String    @id @default(cuid())
+  userId            String?
+  eventId           String
+  bookingReference  String    @unique
+  quantity          Int
+  subtotal          Decimal
+  serviceFee        Decimal
+  tax               Decimal
+  totalAmount       Decimal
+  status            BookingStatus @default(PENDING)
+  paymentId         String?   @unique
+  customerEmail     String
+  customerPhone     String?
+  customerName      String
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  expiresAt         DateTime?
+  completedAt       DateTime?
+  
+  // Relations
+  user              User?     @relation(fields: [userId], references: [id])
+  event             Event     @relation(fields: [eventId], references: [id])
+  tickets           Ticket[]
+  payment           Payment?  @relation(fields: [paymentId], references: [id])
+  refund            Refund?
+}
+
+enum BookingStatus {
+  PENDING
+  RESERVED
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+  EXPIRED
+}
+
+// Payment Management
+model Payment {
+  id                String    @id @default(cuid())
+  amount            Decimal
+  currency          String    @default("EUR")
+  method            PaymentMethodType
+  status            PaymentStatus @default(PENDING)
+  gatewayId         String?
+  gatewayResponse   Json?
+  processedAt       DateTime?
+  failureReason     String?
+  
+  // Relations
+  booking           Booking?
+  refund            Refund?
+}
+
+enum PaymentMethodType {
+  CREDIT_CARD
+  DEBIT_CARD
+  VIVA_WALLET
+  BANK_TRANSFER
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model PaymentMethod {
+  id                String    @id @default(cuid())
+  userId            String
+  type              PaymentMethodType
+  last4             String?
+  brand             String?
+  expiryMonth       Int?
+  expiryYear        Int?
+  isDefault         Boolean   @default(false)
+  gatewayToken      String?
+  
+  // Relations
+  user              User      @relation(fields: [userId], references: [id])
+}
+
+model Refund {
+  id                String    @id @default(cuid())
+  bookingId         String    @unique
+  paymentId         String    @unique
+  amount            Decimal
+  reason            String
+  status            RefundStatus @default(PENDING)
+  processedAt       DateTime?
+  gatewayId         String?
+  
+  // Relations
+  booking           Booking   @relation(fields: [bookingId], references: [id])
+  payment           Payment   @relation(fields: [paymentId], references: [id])
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+  FAILED
+}
+
+// User Engagement
+model Wishlist {
+  id                String    @id @default(cuid())
+  userId            String
+  eventId           String
+  createdAt         DateTime  @default(now())
+  
+  // Relations
+  user              User      @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, eventId])
+}
+
+model Review {
+  id                String    @id @default(cuid())
+  userId            String
+  eventId           String
+  rating            Int
+  comment           String?
+  createdAt         DateTime  @default(now())
+  
+  // Relations
+  user              User      @relation(fields: [userId], references: [id])
+  event             Event     @relation(fields: [eventId], references: [id])
+  
+  @@unique([userId, eventId])
+}
+
+model Notification {
+  id                String    @id @default(cuid())
+  userId            String
+  type              NotificationType
+  title             String
+  message           String
+  data              Json?
+  isRead            Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  
+  // Relations
+  user              User      @relation(fields: [userId], references: [id])
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  EVENT_REMINDER
+  TICKET_TRANSFER
+  REFUND_PROCESSED
+  PROMOTIONAL
+  SYSTEM
+}
+
+// Promotion Management
+model PromoCode {
+  id                String    @id @default(cuid())
+  code              String    @unique
+  description       String?
+  discountType      DiscountType
+  discountValue     Decimal
+  minPurchase       Decimal?
+  maxDiscount       Decimal?
+  usageLimit        Int?
+  usedCount         Int       @default(0)
+  validFrom         DateTime
+  validUntil        DateTime
+  eventIds          String[]
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+// Admin Configuration
+model Configuration {
+  id                String    @id @default(cuid())
+  key               String    @unique
+  value             Json
+  description       String?
+  updatedAt         DateTime  @updatedAt
+}
+
+// Audit Log
+model AuditLog {
+  id                String    @id @default(cuid())
+  userId            String?
+  action            String
+  entity            String
+  entityId          String?
+  oldValues         Json?
+  newValues         Json?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+}
