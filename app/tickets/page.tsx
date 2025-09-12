@@ -155,20 +155,20 @@ export default function TicketsPage() {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center mb-16">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-yellow-200 to-white bg-clip-text text-transparent">
+        <main className="container mx-auto px-4 py-4 md:py-8">
+          <div className="text-center mb-8 md:mb-16">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 md:mb-6 bg-gradient-to-r from-white via-yellow-200 to-white bg-clip-text text-transparent">
               OKTOBERFEST 2024
             </h1>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto px-2">
               Experience authentic Bavarian festivities at Lakatamia Hofbräu in München
             </p>
-            <div className="h-1 w-32 bg-gradient-to-r from-red-500 to-yellow-400 mx-auto mt-6 rounded-full"></div>
+            <div className="h-1 w-24 md:w-32 bg-gradient-to-r from-red-500 to-yellow-400 mx-auto mt-4 md:mt-6 rounded-full"></div>
           </div>
 
           {/* Events Grid */}
           <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-8 justify-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 justify-center">
               {upcomingEvents.map((event, index) => (
                 <Card
                   key={event.id}
@@ -179,7 +179,7 @@ export default function TicketsPage() {
                   }}
                 >
                   {/* Event Image */}
-                  <div className="relative h-80 overflow-hidden bg-gray-800">
+                  <div className="relative h-64 sm:h-72 md:h-80 overflow-hidden bg-gray-800">
                     <Image
                       src={event.image}
                       alt={event.title}
@@ -189,13 +189,13 @@ export default function TicketsPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                     
                     {/* Category Badge */}
-                    <Badge className="absolute top-4 left-4 bg-red-500/90 text-white backdrop-blur-sm">
+                    <Badge className="absolute top-2 sm:top-4 left-2 sm:left-4 bg-red-500/90 text-white backdrop-blur-sm text-xs sm:text-sm">
                       {event.category}
                     </Badge>
                   </div>
 
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-white font-bold text-xl group-hover:text-red-400 transition-colors">
+                  <CardHeader className="pb-3 px-3 sm:px-6 sm:pb-4">
+                    <CardTitle className="text-white font-bold text-lg sm:text-xl group-hover:text-red-400 transition-colors">
                       {event.title}
                     </CardTitle>
                     <CardDescription className="text-gray-400 text-sm leading-relaxed">
@@ -203,23 +203,23 @@ export default function TicketsPage() {
                     </CardDescription>
                   </CardHeader>
 
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3 px-3 sm:px-6 sm:space-y-4">
                     {/* Event Details */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <Calendar className="w-4 h-4 text-red-400" />
-                        <span>{event.date}</span>
+                    <div className="space-y-2 sm:space-y-3">
+                      <div className="flex items-center gap-2 sm:gap-3 text-gray-300">
+                        <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 shrink-0" />
+                        <span className="text-sm sm:text-base">{event.date}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <Clock className="w-4 h-4 text-yellow-400" />
-                        <span>{event.time}</span>
+                      <div className="flex items-center gap-2 sm:gap-3 text-gray-300">
+                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 shrink-0" />
+                        <span className="text-sm sm:text-base">{event.time}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <MapPin className="w-4 h-4 text-red-400" />
+                      <div className="flex items-center gap-2 sm:gap-3 text-gray-300">
+                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 shrink-0" />
                         <span className="text-sm">{event.venue}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-gray-300">
-                        <Users className="w-4 h-4 text-yellow-400" />
+                      <div className="flex items-center gap-2 sm:gap-3 text-gray-300">
+                        <Users className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 shrink-0" />
                         <span className="text-sm">{event.available} tickets available</span>
                       </div>
                     </div>
@@ -229,13 +229,13 @@ export default function TicketsPage() {
                     {/* Pricing Section */}
                     <div className="space-y-2">
                       <h4 className="font-semibold text-white flex items-center gap-2">
-                        <Euro className="w-4 h-4 text-yellow-400" />
-                        Ticket Prices
+                        <Euro className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
+                        <span className="text-sm sm:text-base">Ticket Prices</span>
                       </h4>
                       {event.ticketTypes.map((ticketType) => (
                         <div key={ticketType.id} className="flex justify-between items-center">
-                          <span className="text-gray-300">{ticketType.name.replace(' Ticket', '').replace(' (Under 12)', '')}</span>
-                          <Badge className="bg-yellow-500 text-black font-bold">
+                          <span className="text-gray-300 text-sm sm:text-base">{ticketType.name.replace(' Ticket', '').replace(' (Under 12)', '')}</span>
+                          <Badge className="bg-yellow-500 text-black font-bold text-sm">
                             €{ticketType.price}
                           </Badge>
                         </div>
@@ -243,14 +243,14 @@ export default function TicketsPage() {
                     </div>
 
                     <Button 
-                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold transition-all duration-300 hover:scale-105 group mt-4"
+                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold transition-all duration-300 hover:scale-105 group mt-3 sm:mt-4 h-12 text-sm sm:text-base"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleBookNow(event)
                       }}
                     >
                       Book Now
-                      <ExternalLink className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      <ExternalLink className="ml-2 w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </CardContent>
                 </Card>
@@ -259,12 +259,12 @@ export default function TicketsPage() {
           </div>
 
           {/* Call to Action */}
-          <div className="text-center mt-16">
-            <p className="text-gray-400 mb-6 text-lg">
+          <div className="text-center mt-8 md:mt-16 px-4">
+            <p className="text-gray-400 mb-4 md:mb-6 text-base md:text-lg">
               Ready to experience the authentic Bavarian celebration? 
             </p>
             <Link href="https://locanoche.com" target="_blank">
-              <Button className="bg-gradient-to-r from-yellow-400 to-red-500 hover:from-yellow-500 hover:to-red-600 text-black font-bold text-lg px-8 py-3">
+              <Button className="bg-gradient-to-r from-yellow-400 to-red-500 hover:from-yellow-500 hover:to-red-600 text-black font-bold text-base md:text-lg px-6 md:px-8 py-3 h-12 md:h-auto">
                 Visit locanoche.com
                 <ExternalLink className="ml-2 w-4 h-4" />
               </Button>

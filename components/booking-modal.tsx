@@ -207,102 +207,106 @@ export function BookingModal({ event, isOpen, onClose }: BookingModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] bg-gray-900 border-gray-700 text-white">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-red-400">
+      <DialogContent className="w-[95vw] max-w-[600px] max-h-[95vh] overflow-y-auto bg-gray-900 border-gray-700 text-white">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-red-400">
             Book Tickets
           </DialogTitle>
-          <DialogDescription className="text-gray-400">
+          <DialogDescription className="text-gray-400 text-sm sm:text-base">
             {event.title}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Event Details */}
-          <div className="space-y-3 p-4 bg-gray-800/50 rounded-lg">
-            <div className="flex items-center gap-3 text-gray-300">
-              <Calendar className="w-4 h-4 text-red-400" />
-              <span>{event.date}</span>
-              <Clock className="w-4 h-4 text-yellow-400 ml-2" />
-              <span>{event.time}</span>
+          <div className="space-y-2 sm:space-y-3 p-3 sm:p-4 bg-gray-800/50 rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-gray-300">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 shrink-0" />
+                <span className="text-sm sm:text-base">{event.date}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 shrink-0" />
+                <span className="text-sm sm:text-base">{event.time}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 text-gray-300">
-              <MapPin className="w-4 h-4 text-red-400" />
-              <span>{event.venue}</span>
+            <div className="flex items-center gap-2 sm:gap-3 text-gray-300">
+              <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 shrink-0" />
+              <span className="text-sm sm:text-base">{event.venue}</span>
             </div>
           </div>
 
           {/* Ticket Selection */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <h4 className="font-semibold text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-yellow-400" />
-              Select Tickets
+              <Users className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
+              <span className="text-sm sm:text-base">Select Tickets</span>
             </h4>
 
             {/* Adult Tickets */}
             <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
-              <div className="space-y-1">
-                <p className="font-medium">Adult Ticket</p>
-                <p className="text-sm text-gray-400">General admission</p>
-                <Badge className="bg-yellow-500 text-black font-bold">
+              <div className="space-y-1 flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base">Adult Ticket</p>
+                <p className="text-xs sm:text-sm text-gray-400">General admission</p>
+                <Badge className="bg-yellow-500 text-black font-bold text-xs sm:text-sm">
                   €{adultPrice}
                 </Badge>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 ml-3">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => adjustQuantity('adult', -1)}
                   disabled={adultTickets === 0}
-                  className="border-gray-600 text-white hover:bg-gray-700"
+                  className="border-gray-600 text-white hover:bg-gray-700 h-8 w-8 p-0 sm:h-9 sm:w-9"
                 >
-                  <Minus className="w-4 h-4" />
+                  <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
-                <span className="w-8 text-center font-semibold">{adultTickets}</span>
+                <span className="w-6 sm:w-8 text-center font-semibold text-sm sm:text-base">{adultTickets}</span>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => adjustQuantity('adult', 1)}
                   disabled={adultTickets >= 8}
-                  className="border-gray-600 text-white hover:bg-gray-700"
+                  className="border-gray-600 text-white hover:bg-gray-700 h-8 w-8 p-0 sm:h-9 sm:w-9"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
               </div>
             </div>
 
             {/* Child Tickets */}
             <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
-              <div className="space-y-1">
-                <p className="font-medium">Child Ticket (Under 12)</p>
-                <p className="text-sm text-gray-400">General admission</p>
-                <Badge className="bg-yellow-400 text-black font-bold">
+              <div className="space-y-1 flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base">Child Ticket (Under 12)</p>
+                <p className="text-xs sm:text-sm text-gray-400">General admission</p>
+                <Badge className="bg-yellow-400 text-black font-bold text-xs sm:text-sm">
                   €{childPrice}
                 </Badge>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 ml-3">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => adjustQuantity('child', -1)}
                   disabled={childTickets === 0}
-                  className="border-gray-600 text-white hover:bg-gray-700"
+                  className="border-gray-600 text-white hover:bg-gray-700 h-8 w-8 p-0 sm:h-9 sm:w-9"
                 >
-                  <Minus className="w-4 h-4" />
+                  <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
-                <span className="w-8 text-center font-semibold">{childTickets}</span>
+                <span className="w-6 sm:w-8 text-center font-semibold text-sm sm:text-base">{childTickets}</span>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => adjustQuantity('child', 1)}
                   disabled={childTickets >= 8}
-                  className="border-gray-600 text-white hover:bg-gray-700"
+                  className="border-gray-600 text-white hover:bg-gray-700 h-8 w-8 p-0 sm:h-9 sm:w-9"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                 </Button>
               </div>
             </div>
@@ -313,54 +317,54 @@ export function BookingModal({ event, isOpen, onClose }: BookingModalProps) {
               <Separator className="bg-gray-700" />
 
               {/* Customer Information Form */}
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <h4 className="font-semibold text-white">Customer Information</h4>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
+                <h4 className="font-semibold text-white text-sm sm:text-base">Customer Information</h4>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="customerName">Full Name *</Label>
+                    <Label htmlFor="customerName" className="text-xs sm:text-sm">Full Name *</Label>
                     <Input
                       id="customerName"
                       {...register('customerName')}
-                      className="bg-gray-800 border-gray-600 text-white"
+                      className="bg-gray-800 border-gray-600 text-white h-10 sm:h-11 text-sm sm:text-base"
                       placeholder="Enter your full name"
                     />
                     {errors.customerName && (
-                      <p className="text-red-400 text-sm">{errors.customerName.message}</p>
+                      <p className="text-red-400 text-xs sm:text-sm">{errors.customerName.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="customerEmail">Email Address *</Label>
+                    <Label htmlFor="customerEmail" className="text-xs sm:text-sm">Email Address *</Label>
                     <Input
                       id="customerEmail"
                       type="email"
                       {...register('customerEmail')}
-                      className="bg-gray-800 border-gray-600 text-white"
+                      className="bg-gray-800 border-gray-600 text-white h-10 sm:h-11 text-sm sm:text-base"
                       placeholder="Enter your email"
                     />
                     {errors.customerEmail && (
-                      <p className="text-red-400 text-sm">{errors.customerEmail.message}</p>
+                      <p className="text-red-400 text-xs sm:text-sm">{errors.customerEmail.message}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="customerPhone">Phone Number</Label>
+                  <Label htmlFor="customerPhone" className="text-xs sm:text-sm">Phone Number</Label>
                   <Input
                     id="customerPhone"
                     {...register('customerPhone')}
-                    className="bg-gray-800 border-gray-600 text-white"
+                    className="bg-gray-800 border-gray-600 text-white h-10 sm:h-11 text-sm sm:text-base"
                     placeholder="Enter your phone number (optional)"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Special Requests</Label>
+                  <Label htmlFor="notes" className="text-xs sm:text-sm">Special Requests</Label>
                   <Textarea
                     id="notes"
                     {...register('notes')}
-                    className="bg-gray-800 border-gray-600 text-white"
+                    className="bg-gray-800 border-gray-600 text-white text-sm sm:text-base"
                     placeholder="Any special requests or notes (optional)"
                     rows={3}
                   />
@@ -369,10 +373,10 @@ export function BookingModal({ event, isOpen, onClose }: BookingModalProps) {
                 <Separator className="bg-gray-700" />
 
                 {/* Price Summary */}
-                <div className="space-y-3 p-4 bg-gray-800/50 rounded-lg">
+                <div className="space-y-2 sm:space-y-3 p-3 sm:p-4 bg-gray-800/50 rounded-lg">
                   <h4 className="font-semibold text-white flex items-center gap-2">
-                    <Euro className="w-4 h-4 text-yellow-400" />
-                    Order Summary
+                    <Euro className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
+                    <span className="text-sm sm:text-base">Order Summary</span>
                   </h4>
                   
                   {adultTickets > 0 && (
@@ -417,30 +421,30 @@ export function BookingModal({ event, isOpen, onClose }: BookingModalProps) {
                 </div>
 
                 {/* Submit Button */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-3 sm:pt-4">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleClose}
-                    className="flex-1 border-gray-600 text-white hover:bg-gray-700"
+                    className="flex-1 border-gray-600 text-white hover:bg-gray-700 h-12 text-sm sm:text-base"
                     disabled={isLoading}
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold"
+                    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold h-12 text-sm sm:text-base"
                     disabled={isLoading}
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing...
+                        <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                        <span className="text-xs sm:text-base">Processing...</span>
                       </>
                     ) : (
                       <>
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Pay €{total.toFixed(2)}
+                        <CreditCard className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="text-sm sm:text-base">Pay €{total.toFixed(2)}</span>
                       </>
                     )}
                   </Button>
