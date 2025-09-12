@@ -20,7 +20,12 @@ export const metadata: Metadata = {
   description:
     "Nicosia's Premier Arts & Entertainment Experience. Live concerts, cultural events, and exclusive experiences coming soon.",
   keywords: "Loca Noche, entertainment, concerts, Cyprus, Nicosia, live music, events",
-    generator: 'v0.app'
+  generator: 'v0.app',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  }
 }
 
 export default function RootLayout({
