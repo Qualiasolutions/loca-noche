@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -54,7 +54,7 @@ model Venue {
   capacity          Int
   description       String?
   amenities         Json?
-  images            String[]
+  images            Json
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   
@@ -92,9 +92,9 @@ model Event {
   startTime         DateTime
   endTime           DateTime?
   capacity          Int
-  images            String[]
-  videos            String[]
-  tags              String[]
+  images            Json
+  videos            Json
+  tags              Json
   featured          Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -348,7 +348,7 @@ model PromoCode {
   usedCount         Int       @default(0)
   validFrom         DateTime
   validUntil        DateTime
-  eventIds          String[]
+  eventIds          Json
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())
 }

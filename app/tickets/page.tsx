@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,15 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Calendar, MapPin, Clock, Users, ExternalLink, Euro } from "lucide-react"
 import { LogoHeader } from "@/components/logo-header"
+import { BookingModal } from "@/components/booking-modal"
+
+interface TicketType {
+  id: string
+  name: string
+  price: number
+  available: number
+  description: string
+}
 
 interface Event {
   id: string
@@ -15,29 +25,86 @@ interface Event {
   date: string
   time: string
   venue: string
-  price: number
-  childPrice?: number
   available: number
   description: string
   image: string
   category: string
+  ticketTypes: TicketType[]
 }
 
 export default function TicketsPage() {
+  const [events, setEvents] = useState<Event[]>([])
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const upcomingEvents = [
+  useEffect(() => {
+    fetchEvents()
+  }, [])
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch('/api/events?category=FESTIVAL&status=PUBLISHED')
+      if (response.ok) {
+        const data = await response.json()
+        const formattedEvents: Event[] = data.events.map((event: any) => ({
+          id: event.id,
+          title: event.title,
+          date: new Date(event.eventDate).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          time: `${new Date(event.startTime).toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit'
+          })} - ${new Date(event.endTime).toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit'
+          })}`,
+          venue: event.venue.name,
+          available: event.capacity - (event._count?.bookings || 0),
+          description: event.description,
+          image: Array.isArray(event.images) ? event.images[0] : event.images,
+          category: event.category,
+          ticketTypes: event.ticketTypes.map((tt: any) => ({
+            id: tt.id,
+            name: tt.name,
+            price: Number(tt.price),
+            available: tt.quantity - tt.sold,
+            description: tt.description
+          }))
+        }))
+        setEvents(formattedEvents)
+      }
+    } catch (error) {
+      console.error('Failed to fetch events:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleBookNow = (event: Event) => {
+    setSelectedEvent(event)
+    setIsBookingModalOpen(true)
+  }
+
+  // Use fetched events or fallback to static data
+  const upcomingEvents = events.length > 0 ? events : [
     {
       id: "1",
       title: "Lakatamia Hofbräu Oktoberfest - Minus One",
       date: "October 11, 2024",
       time: "17:00 - 00:00",
       venue: "River Park Lakatamia",
-      price: 10,
-      childPrice: 5,
       available: 300,
       description: "Lakatamia Hofbräu in München Oktoberfest presents Minus One - An authentic German beer festival experience with live music",
       image: "https://i.ibb.co/DDXtKYmG/NICOSIA-Instagram-Post-45-7.png",
-      category: "Oktoberfest"
+      category: "Oktoberfest",
+      ticketTypes: [
+        { id: "adult-1", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
+        { id: "child-1", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
+      ]
     },
     {
       id: "2",
@@ -45,19 +112,16 @@ export default function TicketsPage() {
       date: "October 12, 2024",
       time: "17:00 - 00:00",
       venue: "River Park Lakatamia",
-      price: 10,
-      childPrice: 5,
       available: 300,
       description: "Lakatamia Hofbräu in München Oktoberfest presents Giannis Margaris - Traditional Bavarian celebration with live entertainment",
       image: "https://i.ibb.co/S42KhYHF/NICOSIA-Instagram-Post-45-6.png",
-      category: "Oktoberfest"
+      category: "Oktoberfest",
+      ticketTypes: [
+        { id: "adult-2", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
+        { id: "child-2", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
+      ]
     },
   ]
-
-  const handleEventClick = (eventId: string) => {
-    // Redirect to booking page
-    window.open('https://locanoche.com', '_blank')
-  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -168,27 +232,21 @@ export default function TicketsPage() {
                         <Euro className="w-4 h-4 text-yellow-400" />
                         Ticket Prices
                       </h4>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-300">Adult</span>
-                        <Badge className="bg-yellow-500 text-black font-bold">
-                          €{event.price}
-                        </Badge>
-                      </div>
-                      {event.childPrice && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-300">Under 12</span>
-                          <Badge className="bg-yellow-400 text-black font-semibold">
-                            €{event.childPrice}
+                      {event.ticketTypes.map((ticketType) => (
+                        <div key={ticketType.id} className="flex justify-between items-center">
+                          <span className="text-gray-300">{ticketType.name.replace(' Ticket', '').replace(' (Under 12)', '')}</span>
+                          <Badge className="bg-yellow-500 text-black font-bold">
+                            €{ticketType.price}
                           </Badge>
                         </div>
-                      )}
+                      ))}
                     </div>
 
                     <Button 
                       className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold transition-all duration-300 hover:scale-105 group mt-4"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleEventClick(event.id)
+                        handleBookNow(event)
                       }}
                     >
                       Book Now
@@ -214,6 +272,13 @@ export default function TicketsPage() {
           </div>
         </main>
       </div>
+
+      {/* Booking Modal */}
+      <BookingModal
+        event={selectedEvent}
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+      />
 
       <style jsx>{`
         @keyframes slideInFromRight {
