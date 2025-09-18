@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Calendar, MapPin, Clock, Users, ExternalLink, Euro } from "lucide-react"
 import { LogoHeader } from "@/components/logo-header"
 import { TicketSelector } from "@/components/booking/TicketSelector"
-import { n8nPaymentService } from "@/lib/payment/n8n-payment"
 
 interface TicketType {
   id: string
@@ -85,12 +84,20 @@ export default function TicketsPage() {
 
   const handlePayment = async (eventId: string, ticketType: string, quantity: number, total: number) => {
     try {
-      const paymentResponse = await n8nPaymentService.createPaymentOrder({
-        eventId,
-        quantity,
-        ticketType: ticketType as 'adult' | 'child',
-        description: `${n8nPaymentService.getEventName(eventId)} - ${ticketType} tickets x${quantity}`
+      const response = await fetch('/api/payments/n8n', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId,
+          quantity,
+          ticketType: ticketType as 'adult' | 'child',
+          description: `Oktoberfest ${ticketType} tickets x${quantity}`
+        })
       })
+
+      const paymentResponse = await response.json()
 
       if (paymentResponse.success && paymentResponse.paymentUrl) {
         // Open payment page in new tab
