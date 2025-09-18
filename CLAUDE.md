@@ -2,89 +2,122 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
-
-**Loca Noche Entertainment** - A Next.js event ticketing platform for Cyprus's premier entertainment company specializing in live concerts and cultural events.
-
 ## Commands
 
 ```bash
 # Development
-pnpm dev         # Start development server on http://localhost:3000
+npm run dev              # Start development server (http://localhost:3000)
+npm run build           # Build for production
+npm run start           # Start production server
+npm run lint            # Run Next.js linting
 
-# Build & Production
-pnpm build       # Build for production
-pnpm start       # Start production server
+# Database (Prisma + SQLite)
+npm run db:generate     # Generate Prisma client after schema changes
+npm run db:push         # Push schema changes to database
+npm run db:migrate      # Run database migrations
+npm run db:studio       # Open Prisma Studio GUI
+npm run db:seed         # Seed database with sample events (tsx prisma/seed.ts)
 
 # Testing
-pnpm test        # Run Jest test suite
-pnpm test:watch  # Run tests in watch mode
-pnpm test:coverage # Run tests with coverage report
+npm run test            # Run Jest unit tests
+npm run test:watch      # Run tests in watch mode
+npm run test:coverage   # Generate coverage report (80% threshold required)
 
-# Code Quality
-pnpm lint        # Run Next.js linting
+# Run specific test
+npm test -- --testNamePattern="should validate booking"
+npm test -- app/api/bookings/__tests__/route.test.ts
 
-# Database (Prisma)
-pnpm db:generate # Generate Prisma client
-pnpm db:push     # Push schema changes to database
-pnpm db:migrate  # Run database migrations
-pnpm db:studio   # Open Prisma Studio
+# Deployment
+vercel --prod           # Deploy to Vercel production
 ```
 
 ## Architecture
 
-This is a Next.js 14 application using App Router with the following structure:
+**Event Ticketing Platform** built with Next.js 14 App Router for Cyprus's Loca Noche Entertainment company. Features complete payment integration with VivaPayments and comprehensive event management.
 
-### Core Pages
-- `/` - Coming soon landing page with newsletter signup
-- `/tickets` - Event listing and ticket booking interface
-- `/admin` - Admin panel for event management
+### Project Structure
+```
+app/
+├── api/                # RESTful API endpoints
+│   ├── auth/          # JWT authentication (login, register)
+│   ├── bookings/      # Booking management
+│   ├── events/        # Event CRUD operations
+│   ├── payments/      # Payment processing & webhooks
+│   └── tickets/       # Ticket validation & QR codes
+├── admin/             # Admin dashboard pages
+├── tickets/           # Public ticket booking interface
+├── success/           # Payment success page
+└── failure/           # Payment failure page
 
-### Tech Stack
-- **Framework**: Next.js 14.2.16 with App Router
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT with bcrypt password hashing
-- **UI Components**: shadcn/ui with Radix UI primitives
-- **Styling**: Tailwind CSS v4 with custom animations
-- **Forms**: react-hook-form with Zod validation
-- **Testing**: Jest with React Testing Library, Playwright E2E
-- **Package Manager**: pnpm
+components/
+├── ui/                # shadcn/ui components (pre-built)
+└── booking/           # Custom booking flow components
 
-### Component Architecture
-- All UI components are pre-built shadcn components in `/components/ui/`
-- Uses Radix UI for accessibility and behavior
-- Components use CVA (class-variance-authority) for variant management
+prisma/
+├── schema.prisma      # Database schema definition
+└── seed.ts           # Database seeding script
+```
 
-### API Architecture
-- RESTful API routes in `/app/api/`
-- Authentication endpoints (`/auth/login`, `/auth/register`)
-- Event management (`/events`, `/events/[id]`)
-- Booking system (`/bookings`)
-- Payment processing (`/payments/create`, `/payments/webhook`)
+### Key Technologies
+- **Runtime**: Next.js 14.2.16 with App Router, React 18
+- **Database**: SQLite (dev) via Prisma ORM 6.16.1, PostgreSQL (prod)
+- **UI Library**: shadcn/ui with Radix UI primitives, CVA for variants
+- **Styling**: Tailwind CSS v4 + framer-motion animations
+- **Forms**: react-hook-form + Zod validation
+- **Auth**: JWT (jsonwebtoken) + bcryptjs hashing
+- **Payments**: VivaPayments integration with webhook handling
+- **Testing**: Jest + React Testing Library (80% coverage), Playwright E2E
 
-### Database Schema
-- **User Management**: User authentication, roles (CUSTOMER, ADMIN, ORGANIZER, STAFF)
-- **Event System**: Events, venues, ticket types with capacity management
-- **Booking Flow**: Complete booking lifecycle with payment tracking
-- **Venue Management**: Multi-section venues with seat mapping capabilities
+### Database Schema Overview
+The Prisma schema defines a comprehensive ticketing system:
+- **Users**: Multi-role system (CUSTOMER, ADMIN, ORGANIZER, STAFF)
+- **Events**: Categories, status tracking, venue association
+- **Venues**: Sections with seat mapping capabilities
+- **Bookings**: Complete lifecycle from PENDING to CONFIRMED/REFUNDED
+- **Payments**: Gateway integration, refund management
+- **Tickets**: QR code generation, validation tracking
 
-## Key Features
+### API Endpoints Pattern
+All API routes follow RESTful conventions in `app/api/`:
+- Authentication: `/api/auth/[login|register]`
+- Resources: `/api/[resource]/route.ts` for collection operations
+- Individual: `/api/[resource]/[id]/route.ts` for specific items
+- Webhooks: `/api/payments/webhook` for payment notifications
 
-- **Event Management**: Dynamic event listing with real-time availability
-- **Ticket Booking**: Multi-step booking flow with quantity selection and QR code generation
-- **Payment Processing**: Integrated payment system with VivaWallet support
-- **Admin Dashboard**: Event creation, booking management, analytics
-- **User Authentication**: JWT-based auth with role-based access control
-- **Responsive Design**: Mobile-first approach with Tailwind breakpoints
-- **Dark Theme**: Entertainment-focused dark design with red/yellow accents
+### Component Patterns
+- **Client Components**: Mark with `"use client"` for interactivity
+- **Server Components**: Default for data fetching and static content
+- **UI Components**: Pre-configured shadcn components in `/components/ui/`
+- **Import Alias**: Use `@/` for root imports (e.g., `@/lib/utils`)
 
-## Development Notes
+## Development Workflow
 
-- **Configuration**: Build ignores TypeScript/ESLint errors for faster development
-- **Images**: Unoptimized images expected in `/public/` (logo.png, entertainment-bg.jpg)
-- **Client Components**: Use `"use client"` directive for interactive features
-- **State Management**: React hooks (useState) for booking flow state
-- **Authentication**: JWT tokens with bcrypt for password hashing
-- **Database**: Run `pnpm db:generate` after schema changes
-- **Testing**: Jest configuration with jsdom environment for React components
-- **Path Aliases**: Use `@/` for imports from project root
+### Database Changes
+1. Modify `prisma/schema.prisma`
+2. Run `npm run db:generate` to update Prisma client
+3. Run `npm run db:push` to apply changes to database
+4. Update seed data if needed: `npm run db:seed`
+
+### Testing Approach
+- Unit tests in `__tests__/` directories
+- Coverage requirement: 80% for all metrics
+- E2E tests in `/e2e/` (Playwright, excluded from coverage)
+- Run before commit: `npm run test && npm run lint`
+
+### Payment Integration
+VivaPayments webhook expects:
+- Endpoint: `/api/payments/webhook`
+- Verification: Signature validation
+- Status updates: Booking confirmation on successful payment
+- Error handling: Proper status codes and logging
+
+### Build Configuration
+The `next.config.mjs` intentionally ignores TypeScript/ESLint errors during build for rapid development. Ensure code quality with:
+- `npm run lint` before commits
+- `npm run test:coverage` for test validation
+
+## Important Guidelines
+
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

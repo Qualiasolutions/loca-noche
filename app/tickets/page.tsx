@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Calendar, MapPin, Clock, Users, ExternalLink, Euro } from "lucide-react"
 import { LogoHeader } from "@/components/logo-header"
-import { BookingModal } from "@/components/booking-modal"
+import { TicketSelector } from "@/components/booking/TicketSelector"
+import { n8nPaymentService } from "@/lib/payment/n8n-payment"
 
 interface TicketType {
   id: string
@@ -34,8 +35,6 @@ interface Event {
 
 export default function TicketsPage() {
   const [events, setEvents] = useState<Event[]>([])
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -84,9 +83,25 @@ export default function TicketsPage() {
     }
   }
 
-  const handleBookNow = (event: Event) => {
-    setSelectedEvent(event)
-    setIsBookingModalOpen(true)
+  const handlePayment = async (eventId: string, ticketType: string, quantity: number, total: number) => {
+    try {
+      const paymentResponse = await n8nPaymentService.createPaymentOrder({
+        eventId,
+        quantity,
+        ticketType: ticketType as 'adult' | 'child',
+        description: `${n8nPaymentService.getEventName(eventId)} - ${ticketType} tickets x${quantity}`
+      })
+
+      if (paymentResponse.success && paymentResponse.paymentUrl) {
+        // Open payment page in new tab
+        window.open(paymentResponse.paymentUrl, '_blank')
+      } else {
+        alert(`Payment creation failed: ${paymentResponse.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Payment error:', error)
+      alert('Unable to create payment. Please try again.')
+    }
   }
 
   // Use fetched events or fallback to static data
@@ -172,8 +187,7 @@ export default function TicketsPage() {
               {upcomingEvents.map((event, index) => (
                 <Card
                   key={event.id}
-                  className="bg-gray-900/80 border-gray-700 cursor-pointer transition-all duration-500 hover:border-red-500 hover:shadow-2xl hover:shadow-red-500/20 hover:scale-[1.02] group overflow-hidden"
-                  onClick={() => handleEventClick(event.id)}
+                  className="bg-gray-900/80 border-gray-700 transition-all duration-500 hover:border-red-500 hover:shadow-2xl hover:shadow-red-500/20 hover:scale-[1.02] group overflow-hidden"
                   style={{ 
                     animation: `slideInFromRight 0.6s ease-out ${index * 0.2}s both` 
                   }}
@@ -226,32 +240,13 @@ export default function TicketsPage() {
 
                     <Separator className="bg-gray-700" />
 
-                    {/* Pricing Section */}
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-white flex items-center gap-2">
-                        <Euro className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
-                        <span className="text-sm sm:text-base">Ticket Prices</span>
-                      </h4>
-                      {event.ticketTypes.map((ticketType) => (
-                        <div key={ticketType.id} className="flex justify-between items-center">
-                          <span className="text-gray-300 text-sm sm:text-base">{ticketType.name.replace(' Ticket', '').replace(' (Under 12)', '')}</span>
-                          <Badge className="bg-yellow-500 text-black font-bold text-sm">
-                            €{ticketType.price}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Button 
-                      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold transition-all duration-300 hover:scale-105 group mt-3 sm:mt-4 h-12 text-sm sm:text-base"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleBookNow(event)
-                      }}
-                    >
-                      Book Now
-                      <ExternalLink className="ml-2 w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
+                    {/* Ticket Selector */}
+                    <TicketSelector
+                      eventId={event.id}
+                      eventTitle={event.title}
+                      ticketTypes={event.ticketTypes}
+                      onPurchase={handlePayment}
+                    />
                   </CardContent>
                 </Card>
               ))}
@@ -273,12 +268,6 @@ export default function TicketsPage() {
         </main>
       </div>
 
-      {/* Booking Modal */}
-      <BookingModal
-        event={selectedEvent}
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-      />
 
       <style jsx>{`
         @keyframes slideInFromRight {
