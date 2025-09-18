@@ -31,6 +31,11 @@ export class N8NPaymentService {
       event1WebhookUrl: process.env.N8N_EVENT1_WEBHOOK_URL || '',
       event2WebhookUrl: process.env.N8N_EVENT2_WEBHOOK_URL || '',
     }
+
+    console.log('N8N Config loaded:', {
+      event1Url: this.config.event1WebhookUrl ? 'SET' : 'MISSING',
+      event2Url: this.config.event2WebhookUrl ? 'SET' : 'MISSING'
+    })
   }
 
   async createPaymentOrder(paymentRequest: PaymentRequest): Promise<PaymentResponse> {
@@ -40,21 +45,11 @@ export class N8NPaymentService {
         ? this.config.event1WebhookUrl
         : this.config.event2WebhookUrl
 
-      if (!webhookUrl || webhookUrl.includes('your-n8n-instance.com')) {
-        // Fallback: Use the static Viva Payments link as before
-        const staticUrl = 'https://pay.vivawallet.com/kids-festive'
-        return {
-          success: true,
-          paymentUrl: staticUrl,
-          orderCode: `STATIC-${Date.now()}`,
-          amount: this.calculateTotal(paymentRequest.eventId, paymentRequest.ticketType, paymentRequest.quantity) * 100,
-          quantity: paymentRequest.quantity,
-          ticketType: paymentRequest.ticketType,
-          event: this.getEventName(paymentRequest.eventId),
-          eventId: paymentRequest.eventId,
-          description: paymentRequest.description || 'Oktoberfest Ticket Purchase'
-        }
+      if (!webhookUrl) {
+        throw new Error(`N8N webhook URL not configured for event ${paymentRequest.eventId}`)
       }
+
+      console.log(`Using N8N webhook URL: ${webhookUrl} for event ${paymentRequest.eventId}`)
 
       // Make request to N8N webhook
       const response = await fetch(webhookUrl, {
