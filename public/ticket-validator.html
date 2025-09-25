@@ -57,10 +57,20 @@
             background: #000;
         }
 
-        #video {
-            width: 100%;
-            height: 300px;
-            object-fit: cover;
+        #qr-reader {
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        #qr-reader > div {
+            border: none !important;
+        }
+
+        #qr-reader video {
+            width: 100% !important;
+            height: 300px !important;
+            object-fit: cover !important;
         }
 
         .camera-overlay {
@@ -263,7 +273,7 @@
             margin-right: 5px;
         }
     </style>
-    <script src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
     <div class="validator-container">
@@ -294,7 +304,7 @@
 
         <div class="scanner-section">
             <div class="camera-container" id="cameraContainer">
-                <video id="video"></video>
+                <div id="qr-reader" style="width: 100%;"></div>
                 <div class="camera-overlay"></div>
             </div>
 
@@ -335,14 +345,14 @@
     </audio>
 
     <script>
-        let qrScanner;
+        let html5QrcodeScanner = null;
         let isScanning = false;
         let validCount = 0;
         let invalidCount = 0;
-        let currentCamera = 'environment';
+        let currentCameraId = null;
+        let availableCameras = [];
         let apiMode = 'local'; // 'local' or 'n8n'
 
-        const video = document.getElementById('video');
         const resultDiv = document.getElementById('result');
         const startBtn = document.getElementById('startCameraBtn');
         const stopBtn = document.getElementById('stopCameraBtn');
@@ -357,33 +367,75 @@
             apiMode = mode;
             document.getElementById('localApi').classList.toggle('active', mode === 'local');
             document.getElementById('n8nApi').classList.toggle('active', mode === 'n8n');
-            
-            const statusText = mode === 'local' 
+
+            const statusText = mode === 'local'
                 ? 'Using: Local API (/api/tickets/validate)'
                 : 'Using: N8N Cloud (https://tasos8.app.n8n.cloud)';
-            
+
             document.getElementById('apiStatus').textContent = statusText;
             localStorage.setItem('locanoche_api_mode', mode);
+        }
+
+        // Get available cameras
+        async function getAvailableCameras() {
+            try {
+                availableCameras = await Html5Qrcode.getCameras();
+                console.log('Available cameras:', availableCameras);
+
+                // Prefer back camera if available
+                const backCamera = availableCameras.find(camera =>
+                    camera.label.toLowerCase().includes('back') ||
+                    camera.label.toLowerCase().includes('rear') ||
+                    camera.label.toLowerCase().includes('environment')
+                );
+
+                currentCameraId = backCamera ? backCamera.id : availableCameras[0]?.id;
+                return availableCameras.length > 0;
+            } catch (error) {
+                console.error('Error getting cameras:', error);
+                showResult('❌ Camera access denied. Please allow camera permissions.', 'invalid');
+                return false;
+            }
         }
 
         // Initialize QR Scanner
         async function initScanner() {
             try {
-                qrScanner = new QrScanner(video, onQrCodeScanned, {
-                    highlightScanRegion: true,
-                    highlightCodeOutline: true,
-                    preferredCamera: currentCamera
-                });
+                const hasCameras = await getAvailableCameras();
+                if (!hasCameras) {
+                    showResult('❌ No cameras found on this device', 'invalid');
+                    return;
+                }
+
+                html5QrcodeScanner = new Html5Qrcode("qr-reader");
+                showResult('📷 Scanner ready - Click "Start Camera" to begin', 'loading');
             } catch (error) {
                 console.error('Failed to initialize QR Scanner:', error);
-                showResult('Camera access failed. Please allow camera permissions.', 'invalid');
+                showResult('❌ Failed to initialize scanner', 'invalid');
             }
         }
 
         // Start camera scanning
         async function startCamera() {
+            if (!html5QrcodeScanner || !currentCameraId) {
+                await initScanner();
+                if (!currentCameraId) return;
+            }
+
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
+
             try {
-                await qrScanner.start();
+                await html5QrcodeScanner.start(
+                    currentCameraId,
+                    config,
+                    onQrCodeScanned,
+                    onQrCodeScanError
+                );
+
                 isScanning = true;
                 startBtn.classList.add('hidden');
                 stopBtn.classList.remove('hidden');
@@ -392,42 +444,72 @@
                 showResult('📷 Camera started - Point at QR code', 'loading');
             } catch (error) {
                 console.error('Failed to start camera:', error);
-                showResult('Camera failed to start. Check permissions.', 'invalid');
+                showResult('❌ Camera failed to start. Check permissions.', 'invalid');
             }
         }
 
         // Stop camera scanning
-        function stopCamera() {
-            if (qrScanner) {
-                qrScanner.stop();
-                isScanning = false;
-                startBtn.classList.remove('hidden');
-                stopBtn.classList.add('hidden');
-                switchBtn.classList.add('hidden');
-                showResult('Camera stopped', 'loading');
+        async function stopCamera() {
+            if (html5QrcodeScanner && isScanning) {
+                try {
+                    await html5QrcodeScanner.stop();
+                    isScanning = false;
+                    startBtn.classList.remove('hidden');
+                    stopBtn.classList.add('hidden');
+                    switchBtn.classList.add('hidden');
+                    showResult('📷 Camera stopped', 'loading');
+                } catch (error) {
+                    console.error('Error stopping camera:', error);
+                }
             }
         }
 
-        // Switch between front and back camera
+        // Switch between available cameras
         async function switchCamera() {
-            if (qrScanner) {
-                currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
-                await qrScanner.setCamera(currentCamera);
-                showResult('📷 Camera switched', 'loading');
+            if (!isScanning || availableCameras.length < 2) return;
+
+            try {
+                // Stop current camera
+                await html5QrcodeScanner.stop();
+
+                // Find next camera
+                const currentIndex = availableCameras.findIndex(cam => cam.id === currentCameraId);
+                const nextIndex = (currentIndex + 1) % availableCameras.length;
+                currentCameraId = availableCameras[nextIndex].id;
+
+                // Start with new camera
+                const config = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                };
+
+                await html5QrcodeScanner.start(
+                    currentCameraId,
+                    config,
+                    onQrCodeScanned,
+                    onQrCodeScanError
+                );
+
+                const cameraName = availableCameras[nextIndex].label || 'Camera';
+                showResult(`📷 Switched to: ${cameraName}`, 'loading');
+            } catch (error) {
+                console.error('Failed to switch camera:', error);
+                showResult('❌ Failed to switch camera', 'invalid');
             }
         }
 
-        // Handle QR code detection
-        async function onQrCodeScanned(result) {
+        // Handle successful QR code detection
+        async function onQrCodeScanned(decodedText, decodedResult) {
             if (!isScanning) return;
 
-            console.log('QR Code detected:', result);
+            console.log('QR Code detected:', decodedText);
 
             // Temporarily pause scanning to prevent multiple scans
             isScanning = false;
 
             try {
-                await validateTicket({ qrCode: result });
+                await validateTicket({ qrCode: decodedText });
             } catch (error) {
                 console.error('QR validation error:', error);
                 showResult('❌ Error processing QR code', 'invalid');
@@ -438,10 +520,17 @@
 
             // Resume scanning after 3 seconds
             setTimeout(() => {
-                if (qrScanner && qrScanner.hasCamera()) {
-                    isScanning = true;
-                }
+                isScanning = true;
             }, 3000);
+        }
+
+        // Handle QR code scan errors (this runs continuously, so we keep it quiet)
+        function onQrCodeScanError(error) {
+            // Silently handle scan errors - this is normal when no QR code is visible
+            // Only log actual errors, not "No QR code found" messages
+            if (!error.includes('No QR code found') && !error.includes('No MultiFormat Readers')) {
+                console.warn('QR scan error:', error);
+            }
         }
 
         // Validate ticket with selected API
@@ -584,8 +673,8 @@
         });
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            initScanner();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initScanner();
 
             // Load saved settings
             const savedApiMode = localStorage.getItem('locanoche_api_mode') || 'local';
