@@ -288,8 +288,8 @@
                 <div class="api-option active" onclick="setApiMode('local')" id="localApi">
                     🏠 Local API
                 </div>
-                <div class="api-option" onclick="showN8nNotice()" id="n8nApi" style="opacity: 0.6;">
-                    ☁️ N8N Cloud (Unavailable)
+                <div class="api-option" onclick="setApiMode('n8n')" id="n8nApi">
+                    ☁️ N8N Cloud
                 </div>
             </div>
             <small id="apiStatus">Using: Local API (/api/tickets/validate)</small>
@@ -364,11 +364,6 @@
 
         // API Configuration
         function setApiMode(mode) {
-            if (mode === 'n8n') {
-                showN8nNotice();
-                return;
-            }
-
             apiMode = mode;
             document.getElementById('localApi').classList.toggle('active', mode === 'local');
             document.getElementById('n8nApi').classList.toggle('active', mode === 'n8n');
@@ -379,13 +374,6 @@
 
             document.getElementById('apiStatus').textContent = statusText;
             localStorage.setItem('locanoche_api_mode', mode);
-        }
-
-        // Show N8N unavailable notice
-        function showN8nNotice() {
-            showResult('⚠️ N8N Cloud validation is currently unavailable. The webhook endpoint needs to be configured in N8N. Using Local API instead.', 'loading');
-            // Auto-switch to local API
-            setApiMode('local');
         }
 
         // Get available cameras
@@ -711,7 +699,6 @@
         // Make functions available globally
         window.validateManual = validateManual;
         window.setApiMode = setApiMode;
-        window.showN8nNotice = showN8nNotice;
     </script>
 </body>
 </html>
