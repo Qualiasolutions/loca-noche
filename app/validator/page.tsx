@@ -1,20 +1,30 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Script from 'next/script'
+import { Html5QrcodeScanner, Html5QrcodeScanType, Html5QrcodeSupportedFormats } from 'html5-qrcode'
+
+interface ValidationResult {
+  message: string
+  type: 'valid' | 'invalid' | 'loading'
+  ticket?: {
+    customerName: string
+    eventName: string
+    eventDate: string
+    venue: string
+    ticketType: string
+  }
+}
 
 export default function ValidatorPage() {
-  const [isScanning, setIsScanning] = useState(false)
   const [validCount, setValidCount] = useState(0)
   const [invalidCount, setInvalidCount] = useState(0)
-  const [result, setResult] = useState<{ message: string; type: 'valid' | 'invalid' | 'loading' } | null>(null)
+  const [result, setResult] = useState<ValidationResult | null>(null)
   const [manualInput, setManualInput] = useState('')
   const [soundEnabled, setSoundEnabled] = useState(true)
-  const [qrLibLoaded, setQrLibLoaded] = useState(false)
-  const [cameraPermission, setCameraPermission] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown')
+  const [isScanning, setIsScanning] = useState(false)
 
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const scannerRef = useRef<any>(null)
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null)
+  const isScanningRef = useRef(false)
 
   useEffect(() => {
     // Load saved stats
@@ -23,13 +33,10 @@ export default function ValidatorPage() {
     if (savedValid) setValidCount(parseInt(savedValid))
     if (savedInvalid) setInvalidCount(parseInt(savedInvalid))
 
-    // Check initial camera permissions
-    checkCameraPermissions()
-
+    // Cleanup scanner on unmount
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.destroy()
-        scannerRef.current = null
+        scannerRef.current.clear().catch(console.error)
       }
     }
   }, [])
@@ -40,127 +47,75 @@ export default function ValidatorPage() {
     localStorage.setItem('locanoche_invalid_count', invalidCount.toString())
   }, [validCount, invalidCount])
 
-  const checkCameraPermissions = async () => {
-    try {
-      const permissions = await navigator.permissions.query({ name: 'camera' as PermissionName })
-      setCameraPermission(permissions.state)
-
-      permissions.addEventListener('change', () => {
-        setCameraPermission(permissions.state)
-      })
-    } catch (error) {
-      console.log('Permissions API not supported, will check on camera access')
-      setCameraPermission('unknown')
-    }
-  }
-
-  const requestCameraAccess = async (): Promise<boolean> => {
-    try {
-      const constraints = {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-
-      // Stop the test stream immediately
-      stream.getTracks().forEach(track => track.stop())
-
-      setCameraPermission('granted')
-      return true
-    } catch (error: any) {
-      console.error('Camera access failed:', error)
-
-      if (error.name === 'NotAllowedError') {
-        setCameraPermission('denied')
-        setResult({
-          message: 'Camera permission denied. Please enable camera access in your browser settings and try again.',
-          type: 'invalid'
-        })
-      } else if (error.name === 'NotFoundError') {
-        setResult({
-          message: 'No camera found on this device.',
-          type: 'invalid'
-        })
-      } else {
-        setResult({
-          message: `Camera error: ${error.message || 'Unknown error'}`,
-          type: 'invalid'
-        })
-      }
-
-      return false
-    }
-  }
-
-  const initScanner = async () => {
-    if (!videoRef.current) {
-      setResult({ message: 'Video element not ready', type: 'invalid' })
+  const startScanner = () => {
+    if (scannerRef.current || isScanningRef.current) {
       return
     }
 
-    if (!qrLibLoaded) {
-      setResult({ message: 'QR Scanner library still loading...', type: 'loading' })
-      return
+    setIsScanning(true)
+    isScanningRef.current = true
+    setResult({ message: 'Initializing camera...', type: 'loading' })
+
+    const config = {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0,
+      supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      },
+      rememberLastUsedCamera: true,
+      showTorchButtonIfSupported: true,
+      showZoomSliderIfSupported: true
     }
 
     try {
-      // First check/request camera permissions
-      setResult({ message: 'Requesting camera access...', type: 'loading' })
-      const hasCamera = await requestCameraAccess()
-
-      if (!hasCamera) {
-        return // Error message already set in requestCameraAccess
-      }
-
-      // Wait for QrScanner to be available
-      if (!(window as any).QrScanner) {
-        setResult({ message: 'QR Scanner not available', type: 'invalid' })
-        return
-      }
-
-      const QrScanner = (window as any).QrScanner
-
-      setResult({ message: 'Initializing camera...', type: 'loading' })
-
-      const scanner = new QrScanner(
-        videoRef.current,
-        (result: any) => onQrCodeScanned(result.data || result),
-        {
-          returnDetailedScanResult: true,
-          highlightScanRegion: true,
-          highlightCodeOutline: true,
-          preferredCamera: 'environment',
-          maxScansPerSecond: 5, // Limit scan rate for performance
-        }
+      const scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        config,
+        /* verbose= */ false
       )
 
       scannerRef.current = scanner
 
-      // Start the scanner
-      await scanner.start()
-      setIsScanning(true)
+      scanner.render(
+        (decodedText) => {
+          if (!isScanningRef.current) return
+
+          // Temporarily pause scanning
+          isScanningRef.current = false
+          onQrCodeScanned(decodedText)
+
+          // Resume after 3 seconds
+          setTimeout(() => {
+            isScanningRef.current = true
+          }, 3000)
+        },
+        (errorMessage) => {
+          // Handle scan errors silently (too many false positives)
+          if (errorMessage.includes('NotFoundException')) {
+            return // Normal when no QR code is found
+          }
+          console.log('Scanner error:', errorMessage)
+        }
+      )
+
       setResult({ message: 'Camera active - Position QR code in frame', type: 'loading' })
 
     } catch (error: any) {
       console.error('Failed to start scanner:', error)
+      setIsScanning(false)
+      isScanningRef.current = false
 
       if (error.name === 'NotAllowedError') {
         setResult({
-          message: 'Camera permission was denied. Please refresh the page and allow camera access.',
+          message: 'Camera permission denied. Please enable camera access in your browser settings.',
           type: 'invalid'
         })
       } else if (error.name === 'NotFoundError') {
         setResult({
           message: 'No camera found. Please ensure your device has a working camera.',
-          type: 'invalid'
-        })
-      } else if (error.name === 'NotReadableError') {
-        setResult({
-          message: 'Camera is already in use by another application.',
           type: 'invalid'
         })
       } else {
@@ -174,87 +129,63 @@ export default function ValidatorPage() {
 
   const stopScanner = () => {
     if (scannerRef.current) {
-      scannerRef.current.stop()
-      scannerRef.current.destroy()
+      scannerRef.current.clear().catch(console.error)
       scannerRef.current = null
-      setIsScanning(false)
-      setResult({ message: 'Camera stopped', type: 'loading' })
     }
-  }
-
-  const switchCamera = async () => {
-    if (!scannerRef.current) return
-
-    try {
-      const hasFlash = await scannerRef.current.hasFlash()
-      if (hasFlash) {
-        await scannerRef.current.turnFlashOff()
-      }
-
-      const cameras = await (window as any).QrScanner.listCameras(true)
-      if (cameras.length > 1) {
-        const currentCamera = scannerRef.current.camera
-        const nextCameraIndex = cameras.findIndex((cam: any) => cam.id === currentCamera?.id) + 1
-        const nextCamera = cameras[nextCameraIndex] || cameras[0]
-
-        await scannerRef.current.setCamera(nextCamera.id)
-        setResult({ message: `Switched to ${nextCamera.label || 'camera'}`, type: 'loading' })
-
-        setTimeout(() => {
-          if (isScanning) {
-            setResult({ message: 'Camera active - Position QR code in frame', type: 'loading' })
-          }
-        }, 2000)
-      }
-    } catch (error) {
-      console.error('Failed to switch camera:', error)
-      setResult({ message: 'Failed to switch camera', type: 'invalid' })
-    }
+    setIsScanning(false)
+    isScanningRef.current = false
+    setResult({ message: 'Camera stopped', type: 'loading' })
   }
 
   const onQrCodeScanned = async (qrCode: string) => {
-    if (!isScanning) return
-
-    // Pause scanning
-    setIsScanning(false)
-    
+    console.log('QR Code scanned:', qrCode)
     await validateTicket({ qrCode })
-
-    // Resume after 3 seconds
-    setTimeout(() => {
-      setIsScanning(true)
-    }, 3000)
   }
 
-  const validateTicket = async (data: any) => {
-    setResult({ message: 'Validating...', type: 'loading' })
+  const validateTicket = async (data: { qrCode?: string, ticketNumber?: string }) => {
+    setResult({ message: 'Validating ticket...', type: 'loading' })
 
     try {
       const response = await fetch('/api/tickets/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...data,
-          validatorId: 'STAFF-001',
+          qrCode: data.qrCode,
+          ticketNumber: data.ticketNumber,
+          validatorId: 'STAFF-VALIDATOR',
           deviceInfo: {
             userAgent: navigator.userAgent,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            viewport: `${window.innerWidth}x${window.innerHeight}`
           }
         })
       })
 
       const result = await response.json()
 
-      if (result.valid) {
+      if (result.valid && result.ticket) {
         setResult({
-          message: `✅ VALID - ${result.ticket.customerName} - ${result.ticket.eventName}`,
-          type: 'valid'
+          message: `✅ VALID TICKET`,
+          type: 'valid',
+          ticket: {
+            customerName: result.ticket.customerName,
+            eventName: result.ticket.eventName,
+            eventDate: new Date(result.ticket.eventDate).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            venue: result.ticket.venue,
+            ticketType: result.ticket.ticketType
+          }
         })
         setValidCount(v => v + 1)
         if (soundEnabled) playSound('success')
       } else {
         setResult({
-          message: `❌ ${result.message}`,
+          message: `❌ ${result.message || 'INVALID TICKET'}`,
           type: 'invalid'
         })
         setInvalidCount(i => i + 1)
@@ -263,10 +194,9 @@ export default function ValidatorPage() {
     } catch (error: any) {
       console.error('Validation error:', error)
 
-      // More detailed error messages
-      let errorMessage = 'Connection error'
+      let errorMessage = 'Network connection failed'
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        errorMessage = 'Network connection failed'
+        errorMessage = 'Unable to connect to validation server'
       } else if (error.message) {
         errorMessage = `API Error: ${error.message}`
       }
@@ -279,182 +209,167 @@ export default function ValidatorPage() {
 
   const handleManualValidate = async () => {
     if (!manualInput.trim()) return
-    
-    await validateTicket({ 
-      ticketNumber: manualInput,
-      qrCode: manualInput 
-    })
-    
+
+    await validateTicket({ ticketNumber: manualInput })
     setManualInput('')
   }
 
   const playSound = (type: 'success' | 'error') => {
-    const audio = new Audio(
-      type === 'success' 
-        ? 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAeCC+HzvLZiTYIG2m98OTLR0w='
-        : 'data:audio/wav;base64,UklGRiQEAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAEAAB/h4qFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAeCC+HzvLZiTYIG2m98OTLR0w='
-    )
-    audio.play().catch(() => {})
+    try {
+      const audio = new Audio(
+        type === 'success'
+          ? 'data:audio/wav;base64,UklGRiQEAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAeCC+HzvLZiTYIG2m98OTLR0w='
+          : 'data:audio/wav;base64,UklGRiQEAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAEAAB/h4qFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAeCC+HzvLZiTYIG2m98OTLR0w='
+      )
+      audio.play().catch(() => {})
+    } catch (error) {
+      // Silently fail if audio doesn't work
+    }
+  }
+
+  const resetCounters = () => {
+    setValidCount(0)
+    setInvalidCount(0)
+    localStorage.removeItem('locanoche_valid_count')
+    localStorage.removeItem('locanoche_invalid_count')
+    setResult({ message: 'Counters reset', type: 'loading' })
+
+    setTimeout(() => {
+      if (!isScanning) {
+        setResult(null)
+      }
+    }, 2000)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white/95 backdrop-blur rounded-xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-light tracking-wider mb-2">LOCA NOCHE</h1>
-            <div className="w-16 h-0.5 bg-gradient-to-r from-transparent via-gray-400 to-transparent mx-auto mb-4"></div>
-            <p className="text-gray-500 text-sm uppercase tracking-widest">Ticket Validation System</p>
-          </div>
-
-          <div className="mb-6 flex justify-center">
-            <label className="flex items-center gap-3 text-gray-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={soundEnabled}
-                onChange={(e) => setSoundEnabled(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-slate-600 focus:ring-slate-500"
-              />
-              <span className="text-sm">Sound Feedback</span>
-            </label>
-          </div>
-
-          {/* Camera Section */}
-          <div className="mb-8">
-            <div className="relative bg-black rounded-lg overflow-hidden mb-4 border border-gray-200" style={{ height: '300px' }}>
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                style={{ display: isScanning ? 'block' : 'none' }}
-                playsInline
-                muted
-                autoPlay
-              />
-              {!isScanning && (
-                <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                  {!qrLibLoaded ? (
-                    <p className="text-gray-400 text-sm">Loading scanner library...</p>
-                  ) : cameraPermission === 'denied' ? (
-                    <div>
-                      <p className="text-red-400 text-sm mb-2">Camera Access Denied</p>
-                      <p className="text-gray-500 text-xs">Please enable camera permissions in your browser</p>
-                    </div>
-                  ) : cameraPermission === 'granted' ? (
-                    <p className="text-gray-400 text-sm">Camera Ready - Click to start scanning</p>
-                  ) : (
-                    <p className="text-gray-400 text-sm">Camera Inactive</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-4 justify-center">
-              {!isScanning ? (
-                <button
-                  onClick={initScanner}
-                  disabled={!qrLibLoaded}
-                  className={`px-8 py-2.5 rounded-lg font-light tracking-wide transition-colors ${
-                    !qrLibLoaded
-                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      : 'bg-slate-900 text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {!qrLibLoaded ? 'LOADING...' : 'START SCANNER'}
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={stopScanner}
-                    className="px-8 py-2.5 bg-slate-600 text-white rounded-lg font-light tracking-wide hover:bg-slate-700 transition-colors"
-                  >
-                    STOP
-                  </button>
-                  <button
-                    onClick={switchCamera}
-                    className="px-4 py-2.5 bg-slate-700 text-white rounded-lg font-light tracking-wide hover:bg-slate-600 transition-colors text-sm"
-                  >
-                    📷
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Manual Entry */}
-          <div className="border border-gray-200 rounded-lg p-6 mb-6">
-            <h3 className="text-sm uppercase tracking-wider text-gray-600 mb-4">Manual Validation</h3>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={manualInput}
-                onChange={(e) => setManualInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleManualValidate()}
-                placeholder="Enter ticket code"
-                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 focus:border-slate-600 focus:outline-none text-sm"
-              />
-              <button
-                onClick={handleManualValidate}
-                className="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-light text-sm tracking-wide hover:bg-slate-800 transition-colors"
-              >
-                VALIDATE
-              </button>
-            </div>
-          </div>
-
-          {/* Result */}
-          {result && (
-            <div
-              className={`p-5 rounded-lg text-center mb-6 border ${
-                result.type === 'valid' ? 'bg-green-50 border-green-200 text-green-800' :
-                result.type === 'invalid' ? 'bg-red-50 border-red-200 text-red-800' :
-                'bg-amber-50 border-amber-200 text-amber-800'
-              }`}
-            >
-              <p className="text-sm font-medium">{result.message}</p>
-            </div>
-          )}
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="border border-gray-200 p-6 rounded-lg text-center">
-              <div className="text-2xl font-light text-slate-900">{validCount}</div>
-              <div className="text-xs uppercase tracking-wider text-gray-500 mt-2">Valid</div>
-            </div>
-            <div className="border border-gray-200 p-6 rounded-lg text-center">
-              <div className="text-2xl font-light text-slate-900">{invalidCount}</div>
-              <div className="text-xs uppercase tracking-wider text-gray-500 mt-2">Invalid</div>
-            </div>
-          </div>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setValidCount(0)
-                setInvalidCount(0)
-                localStorage.removeItem('locanoche_valid_count')
-                localStorage.removeItem('locanoche_invalid_count')
-              }}
-              className="text-gray-400 hover:text-gray-600 text-xs uppercase tracking-wider transition-colors"
-            >
-              Reset Counter
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Header */}
+      <div className="bg-white/10 backdrop-blur-md border-b border-white/20 sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="text-center">
+            <h1 className="text-2xl font-light tracking-wider text-white mb-1">LOCA NOCHE</h1>
+            <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-white/60 to-transparent mx-auto mb-2"></div>
+            <p className="text-white/70 text-xs uppercase tracking-widest">Ticket Validator</p>
           </div>
         </div>
       </div>
 
-      {/* Load QR Scanner library */}
-      <Script
-        src="/qr-scanner.umd.min.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          console.log('QR Scanner library loaded successfully')
-          setQrLibLoaded(true)
-        }}
-        onError={(e) => {
-          console.error('Failed to load QR Scanner library:', e)
-          setResult({ message: 'Failed to load scanner library', type: 'invalid' })
-        }}
-      />
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 text-center">
+            <div className="text-3xl font-light text-green-400 mb-2">{validCount}</div>
+            <div className="text-xs uppercase tracking-wider text-white/70">Valid Tickets</div>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 text-center">
+            <div className="text-3xl font-light text-red-400 mb-2">{invalidCount}</div>
+            <div className="text-xs uppercase tracking-wider text-white/70">Invalid Tickets</div>
+          </div>
+        </div>
+
+        {/* Scanner Section */}
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-light text-white">QR Scanner</h2>
+            <label className="flex items-center gap-3 text-white/70 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={soundEnabled}
+                onChange={(e) => setSoundEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-white/30 bg-white/10 text-slate-600 focus:ring-slate-500 focus:ring-offset-0"
+              />
+              <span className="text-sm">Sound</span>
+            </label>
+          </div>
+
+          {/* Scanner Container */}
+          <div className="relative">
+            <div id="qr-reader" className={`${isScanning ? 'block' : 'hidden'} mb-4`}></div>
+
+            {!isScanning && (
+              <div className="bg-black/50 rounded-lg h-80 flex flex-col items-center justify-center text-center border-2 border-dashed border-white/30 mb-4">
+                <div className="text-6xl text-white/50 mb-4">📱</div>
+                <p className="text-white/70 text-lg mb-2">QR Code Scanner</p>
+                <p className="text-white/50 text-sm">Tap Start to begin scanning tickets</p>
+              </div>
+            )}
+
+            <div className="flex gap-4 justify-center">
+              {!isScanning ? (
+                <button
+                  onClick={startScanner}
+                  className="px-8 py-3 bg-white text-slate-900 rounded-lg font-medium tracking-wide hover:bg-white/90 transition-colors flex items-center gap-2"
+                >
+                  <span className="text-xl">📷</span>
+                  START SCANNER
+                </button>
+              ) : (
+                <button
+                  onClick={stopScanner}
+                  className="px-8 py-3 bg-red-600 text-white rounded-lg font-medium tracking-wide hover:bg-red-700 transition-colors"
+                >
+                  STOP SCANNER
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Manual Entry */}
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6">
+          <h3 className="text-lg font-light text-white mb-4">Manual Entry</h3>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleManualValidate()}
+              placeholder="Enter ticket code manually"
+              className="flex-1 px-4 py-3 rounded-lg border border-white/30 bg-white/10 text-white placeholder-white/50 focus:border-white/60 focus:outline-none focus:bg-white/20 transition-colors"
+            />
+            <button
+              onClick={handleManualValidate}
+              disabled={!manualInput.trim()}
+              className="px-6 py-3 bg-white text-slate-900 rounded-lg font-medium tracking-wide hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              VALIDATE
+            </button>
+          </div>
+        </div>
+
+        {/* Result Display */}
+        {result && (
+          <div className={`backdrop-blur-md border rounded-xl p-6 text-center ${
+            result.type === 'valid'
+              ? 'bg-green-500/20 border-green-500/40 text-green-100' :
+            result.type === 'invalid'
+              ? 'bg-red-500/20 border-red-500/40 text-red-100' :
+              'bg-amber-500/20 border-amber-500/40 text-amber-100'
+          }`}>
+            <p className="text-lg font-medium mb-3">{result.message}</p>
+
+            {result.ticket && (
+              <div className="text-sm space-y-1 text-left bg-black/20 rounded-lg p-4">
+                <div><strong>Customer:</strong> {result.ticket.customerName}</div>
+                <div><strong>Event:</strong> {result.ticket.eventName}</div>
+                <div><strong>Date:</strong> {result.ticket.eventDate}</div>
+                <div><strong>Venue:</strong> {result.ticket.venue}</div>
+                <div><strong>Type:</strong> {result.ticket.ticketType}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reset Button */}
+        <div className="text-center">
+          <button
+            onClick={resetCounters}
+            className="text-white/40 hover:text-white/70 text-sm uppercase tracking-wider transition-colors"
+          >
+            Reset Counters
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
