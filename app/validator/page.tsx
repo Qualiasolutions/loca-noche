@@ -52,6 +52,16 @@ export default function ValidatorPage() {
 
   const getCameras = async () => {
     try {
+      // First try to get camera permissions
+      await navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          // Stop the test stream immediately
+          stream.getTracks().forEach(track => track.stop())
+        })
+        .catch(error => {
+          console.warn('Camera permission test failed:', error)
+        })
+
       const devices = await Html5Qrcode.getCameras()
       console.log('Available cameras:', devices)
       setCameras(devices)
@@ -67,12 +77,21 @@ export default function ValidatorPage() {
         setSelectedCamera(rearCamera.id)
       } else if (devices.length > 0) {
         setSelectedCamera(devices[0].id)
+      } else {
+        // Fallback: try to use default camera
+        setSelectedCamera('default')
+        setCameras([{ id: 'default', label: 'Default Camera' }])
       }
     } catch (error) {
       console.error('Error getting cameras:', error)
+
+      // Fallback: try to use environment facing mode
+      setSelectedCamera('environment')
+      setCameras([{ id: 'environment', label: 'Environment Camera (Rear)' }])
+
       setResult({
-        message: 'Unable to access camera. Please ensure camera permissions are granted.',
-        type: 'invalid'
+        message: 'Camera detection failed. Using fallback camera mode.',
+        type: 'loading'
       })
     }
   }
@@ -94,8 +113,18 @@ export default function ValidatorPage() {
         disableFlip: false,
       }
 
+      // Handle different camera ID formats
+      let cameraId = selectedCamera
+      if (selectedCamera === 'environment') {
+        // Use facingMode constraint instead of device ID
+        cameraId = { facingMode: 'environment' }
+      } else if (selectedCamera === 'default') {
+        // Use default camera
+        cameraId = { facingMode: 'user' }
+      }
+
       await html5QrCode.start(
-        selectedCamera,
+        cameraId,
         config,
         (decodedText, decodedResult) => {
           console.log('QR Code detected:', decodedText)
@@ -121,10 +150,15 @@ export default function ValidatorPage() {
           type: 'invalid'
         })
       } else if (error.name === 'NotFoundError') {
-        setResult({
-          message: 'No camera found. Please check your device has a working camera.',
-          type: 'invalid'
-        })
+        // Try fallback with basic getUserMedia
+        try {
+          await tryFallbackCamera()
+        } catch (fallbackError) {
+          setResult({
+            message: 'No camera found. Please check your device has a working camera.',
+            type: 'invalid'
+          })
+        }
       } else {
         setResult({
           message: `Camera error: ${error.message || 'Failed to start camera'}`,
@@ -134,12 +168,50 @@ export default function ValidatorPage() {
     }
   }
 
+  const tryFallbackCamera = async () => {
+    setResult({ message: 'Trying fallback camera method...', type: 'loading' })
+
+    // Simple fallback using getUserMedia directly
+    try {
+      const constraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 }
+        }
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+
+      // Get the video element and set the stream
+      const videoElement = document.getElementById(videoElementId) as HTMLVideoElement
+      if (videoElement) {
+        videoElement.srcObject = stream
+        videoElement.play()
+        setIsScanning(true)
+        setResult({ message: 'Camera active (fallback mode) - QR scanning not available', type: 'loading' })
+      }
+    } catch (error) {
+      throw error
+    }
+  }
+
   const stopScanning = async () => {
-    if (!html5QrCodeRef.current || !isScanning) return
+    if (!isScanning) return
 
     try {
-      await html5QrCodeRef.current.stop()
-      html5QrCodeRef.current = null
+      if (html5QrCodeRef.current) {
+        await html5QrCodeRef.current.stop()
+        html5QrCodeRef.current = null
+      } else {
+        // Handle fallback camera mode
+        const videoElement = document.getElementById(videoElementId) as HTMLVideoElement
+        if (videoElement && videoElement.srcObject) {
+          const stream = videoElement.srcObject as MediaStream
+          stream.getTracks().forEach(track => track.stop())
+          videoElement.srcObject = null
+        }
+      }
       setIsScanning(false)
       setResult({ message: 'Camera stopped', type: 'loading' })
     } catch (error) {
