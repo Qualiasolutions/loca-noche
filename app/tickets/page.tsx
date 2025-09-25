@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Calendar, MapPin, Clock, Users, ExternalLink, Euro } from "lucide-react"
 import { LogoHeader } from "@/components/logo-header"
 import { TicketSelector } from "@/components/booking/TicketSelector"
+import { CustomerForm, CustomerData } from "@/components/booking/CustomerForm"
 
 interface TicketType {
   id: string
@@ -35,6 +36,14 @@ interface Event {
 export default function TicketsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [showCustomerForm, setShowCustomerForm] = useState(false)
+  const [selectedPurchase, setSelectedPurchase] = useState<{
+    eventId: string
+    eventTitle: string
+    ticketSelections: any[]
+    total: number
+  } | null>(null)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
   useEffect(() => {
     fetchEvents()
@@ -82,7 +91,22 @@ export default function TicketsPage() {
     }
   }
 
-  const handlePayment = async (eventId: string, ticketType: string, quantity: number, total: number) => {
+  const handleTicketSelection = async (eventId: string, ticketSelections: any[], total: number) => {
+    // Store the selection and show customer form
+    const event = upcomingEvents.find(e => e.id === eventId)
+    setSelectedPurchase({
+      eventId,
+      eventTitle: event?.title || 'Event',
+      ticketSelections,
+      total
+    })
+    setShowCustomerForm(true)
+  }
+
+  const handleCustomerSubmit = async (customerData: CustomerData) => {
+    if (!selectedPurchase) return
+
+    setIsProcessingPayment(true)
     try {
       const response = await fetch('/api/payments/n8n', {
         method: 'POST',
@@ -90,25 +114,63 @@ export default function TicketsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          eventId,
-          quantity,
-          ticketType: ticketType as 'adult' | 'child',
-          description: `Oktoberfest ${ticketType} tickets x${quantity}`
+          eventId: selectedPurchase.eventId,
+          ticketSelections: selectedPurchase.ticketSelections,
+          total: selectedPurchase.total,
+          description: `${selectedPurchase.eventTitle} - Total: €${selectedPurchase.total}`,
+          customerData
         })
       })
 
       const paymentResponse = await response.json()
 
       if (paymentResponse.success && paymentResponse.paymentUrl) {
+        // Calculate ticket breakdown for URL params
+        const adultTickets = selectedPurchase.ticketSelections
+          .filter(t => t.ticketTypeName === 'adult')
+          .reduce((sum, t) => sum + t.quantity, 0)
+
+        const childTickets = selectedPurchase.ticketSelections
+          .filter(t => t.ticketTypeName === 'child')
+          .reduce((sum, t) => sum + t.quantity, 0)
+
+        const totalQuantity = adultTickets + childTickets
+
+        // Create success page URL with customer data for ticket generation
+        const successUrl = new URL('/success', window.location.origin)
+        successUrl.searchParams.set('orderId', paymentResponse.orderCode)
+        successUrl.searchParams.set('eventId', selectedPurchase.eventId)
+        successUrl.searchParams.set('customerEmail', customerData.email)
+        successUrl.searchParams.set('customerName', encodeURIComponent(`${customerData.firstName} ${customerData.lastName}`))
+        successUrl.searchParams.set('totalAmount', selectedPurchase.total.toString())
+        successUrl.searchParams.set('totalQuantity', totalQuantity.toString())
+        successUrl.searchParams.set('adultTickets', adultTickets.toString())
+        successUrl.searchParams.set('childTickets', childTickets.toString())
+
+        // Store success URL for after payment
+        sessionStorage.setItem('successUrl', successUrl.toString())
+
         // Open payment page in new tab
         window.open(paymentResponse.paymentUrl, '_blank')
+
+        // Show success message or redirect after a delay
+        setTimeout(() => {
+          window.location.href = successUrl.toString()
+        }, 3000)
       } else {
         alert(`Payment creation failed: ${paymentResponse.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Payment error:', error)
       alert('Unable to create payment. Please try again.')
+    } finally {
+      setIsProcessingPayment(false)
     }
+  }
+
+  const handleCustomerCancel = () => {
+    setShowCustomerForm(false)
+    setSelectedPurchase(null)
   }
 
   // Use fetched events or fallback to static data
@@ -247,13 +309,24 @@ export default function TicketsPage() {
 
                     <Separator className="bg-gray-700" />
 
-                    {/* Ticket Selector */}
-                    <TicketSelector
-                      eventId={event.id}
-                      eventTitle={event.title}
-                      ticketTypes={event.ticketTypes}
-                      onPurchase={handlePayment}
-                    />
+                    {/* Ticket Selector or Customer Form */}
+                    {showCustomerForm && selectedPurchase?.eventId === event.id ? (
+                      <CustomerForm
+                        eventTitle={selectedPurchase.eventTitle}
+                        totalTickets={selectedPurchase.ticketSelections.reduce((sum: number, sel: any) => sum + sel.quantity, 0)}
+                        totalAmount={selectedPurchase.total}
+                        onSubmit={handleCustomerSubmit}
+                        onCancel={handleCustomerCancel}
+                        isLoading={isProcessingPayment}
+                      />
+                    ) : (
+                      <TicketSelector
+                        eventId={event.id}
+                        eventTitle={event.title}
+                        ticketTypes={event.ticketTypes}
+                        onPurchase={handleTicketSelection}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               ))}

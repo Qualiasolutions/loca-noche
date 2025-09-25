@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎫 Loca Noche - QR Ticket Validator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .validator-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .scanner-section {
+            margin-bottom: 30px;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #video {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            background: rgba(0, 255, 0, 0.1);
+            pointer-events: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .manual-entry {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .manual-entry h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .result {
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            font-weight: 600;
+            font-size: 18px;
+            animation: slideIn 0.5s ease;
+        }
+
+        .result.valid {
+            background: linear-gradient(45deg, #4CAF50, #8BC34A);
+            color: white;
+        }
+
+        .result.invalid {
+            background: linear-gradient(45deg, #f44336, #FF5722);
+            color: white;
+        }
+
+        .result.loading {
+            background: linear-gradient(45deg, #FF9800, #FFC107);
+            color: white;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .config-section {
+            background: rgba(255, 235, 59, 0.1);
+            border: 2px solid #FFC107;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h4 {
+            color: #F57C00;
+            margin-bottom: 10px;
+        }
+
+        .api-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .api-option {
+            padding: 8px 16px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .api-option.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        @media (max-width: 600px) {
+            .validator-container {
+                padding: 20px;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hidden { display: none; }
+
+        .sound-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        .sound-controls input[type="checkbox"] {
+            margin-right: 5px;
+        }
+    </style>
+    <script src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+</head>
+<body>
+    <div class="validator-container">
+        <div class="header">
+            <h1>🎫 Loca Noche</h1>
+            <p>QR Ticket Validator</p>
+        </div>
+
+        <div class="config-section">
+            <h4>API Configuration</h4>
+            <div class="api-selector">
+                <div class="api-option active" onclick="setApiMode('local')" id="localApi">
+                    🏠 Local API
+                </div>
+                <div class="api-option" onclick="setApiMode('n8n')" id="n8nApi">
+                    ☁️ N8N Cloud
+                </div>
+            </div>
+            <small id="apiStatus">Using: Local API (/api/tickets/validate)</small>
+        </div>
+
+        <div class="sound-controls">
+            <label>
+                <input type="checkbox" id="soundEnabled" checked>
+                🔊 Sound Feedback
+            </label>
+        </div>
+
+        <div class="scanner-section">
+            <div class="camera-container" id="cameraContainer">
+                <video id="video"></video>
+                <div class="camera-overlay"></div>
+            </div>
+
+            <div class="controls">
+                <button id="startCameraBtn">📱 Start Camera</button>
+                <button id="stopCameraBtn" class="hidden">⏹️ Stop Camera</button>
+                <button id="switchCameraBtn" class="hidden">🔄 Switch Camera</button>
+            </div>
+        </div>
+
+        <div class="manual-entry">
+            <h3>Manual Entry</h3>
+            <div class="input-group">
+                <input type="text" id="manualInput" placeholder="Ticket ID, QR Code, or Number">
+                <button onclick="validateManual()">✅ Validate</button>
+            </div>
+        </div>
+
+        <div id="result" class="hidden"></div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="validCount">0</div>
+                <div class="stat-label">Valid Tickets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="invalidCount">0</div>
+                <div class="stat-label">Invalid Tickets</div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="successSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAeCC+HzvLZiTYIG2m98OTLR0w=" type="audio/wav">
+    </audio>
+    <audio id="errorSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRiQEAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAEAAB/h4qFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAeCC+HzvLZiTYIG2m98OTLR0w=" type="audio/wav">
+    </audio>
+
+    <script>
+        let qrScanner;
+        let isScanning = false;
+        let validCount = 0;
+        let invalidCount = 0;
+        let currentCamera = 'environment';
+        let apiMode = 'local'; // 'local' or 'n8n'
+
+        const video = document.getElementById('video');
+        const resultDiv = document.getElementById('result');
+        const startBtn = document.getElementById('startCameraBtn');
+        const stopBtn = document.getElementById('stopCameraBtn');
+        const switchBtn = document.getElementById('switchCameraBtn');
+        const cameraContainer = document.getElementById('cameraContainer');
+        const successSound = document.getElementById('successSound');
+        const errorSound = document.getElementById('errorSound');
+        const soundEnabled = document.getElementById('soundEnabled');
+
+        // API Configuration
+        function setApiMode(mode) {
+            apiMode = mode;
+            document.getElementById('localApi').classList.toggle('active', mode === 'local');
+            document.getElementById('n8nApi').classList.toggle('active', mode === 'n8n');
+            
+            const statusText = mode === 'local' 
+                ? 'Using: Local API (/api/tickets/validate)'
+                : 'Using: N8N Cloud (https://tasos8.app.n8n.cloud)';
+            
+            document.getElementById('apiStatus').textContent = statusText;
+            localStorage.setItem('locanoche_api_mode', mode);
+        }
+
+        // Initialize QR Scanner
+        async function initScanner() {
+            try {
+                qrScanner = new QrScanner(video, onQrCodeScanned, {
+                    highlightScanRegion: true,
+                    highlightCodeOutline: true,
+                    preferredCamera: currentCamera
+                });
+            } catch (error) {
+                console.error('Failed to initialize QR Scanner:', error);
+                showResult('Camera access failed. Please allow camera permissions.', 'invalid');
+            }
+        }
+
+        // Start camera scanning
+        async function startCamera() {
+            try {
+                await qrScanner.start();
+                isScanning = true;
+                startBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+                switchBtn.classList.remove('hidden');
+                cameraContainer.style.display = 'block';
+                showResult('📷 Camera started - Point at QR code', 'loading');
+            } catch (error) {
+                console.error('Failed to start camera:', error);
+                showResult('Camera failed to start. Check permissions.', 'invalid');
+            }
+        }
+
+        // Stop camera scanning
+        function stopCamera() {
+            if (qrScanner) {
+                qrScanner.stop();
+                isScanning = false;
+                startBtn.classList.remove('hidden');
+                stopBtn.classList.add('hidden');
+                switchBtn.classList.add('hidden');
+                showResult('Camera stopped', 'loading');
+            }
+        }
+
+        // Switch between front and back camera
+        async function switchCamera() {
+            if (qrScanner) {
+                currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+                await qrScanner.setCamera(currentCamera);
+                showResult('📷 Camera switched', 'loading');
+            }
+        }
+
+        // Handle QR code detection
+        async function onQrCodeScanned(result) {
+            if (!isScanning) return;
+
+            console.log('QR Code detected:', result);
+
+            // Temporarily pause scanning to prevent multiple scans
+            isScanning = false;
+
+            try {
+                await validateTicket({ qrCode: result });
+            } catch (error) {
+                console.error('QR validation error:', error);
+                showResult('❌ Error processing QR code', 'invalid');
+                playSound('error');
+                invalidCount++;
+                updateStats();
+            }
+
+            // Resume scanning after 3 seconds
+            setTimeout(() => {
+                if (qrScanner && qrScanner.hasCamera()) {
+                    isScanning = true;
+                }
+            }, 3000);
+        }
+
+        // Validate ticket with selected API
+        async function validateTicket(ticketData) {
+            showResult('🔄 Validating ticket...', 'loading');
+
+            const validationData = {
+                ...ticketData,
+                validatorId: 'STAFF-001',
+                deviceInfo: {
+                    userAgent: navigator.userAgent,
+                    timestamp: new Date().toISOString()
+                }
+            };
+
+            try {
+                let url, options;
+                
+                if (apiMode === 'local') {
+                    // Use local API endpoint
+                    url = '/api/tickets/validate';
+                    options = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(validationData)
+                    };
+                } else {
+                    // Use N8N webhook
+                    url = 'https://tasos8.app.n8n.cloud/webhook/validate-ticket';
+                    options = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            ...validationData,
+                            ipAddress: 'webapp'
+                        })
+                    };
+                }
+
+                const response = await fetch(url, options);
+                const result = await response.json();
+
+                if (result.valid) {
+                    const customerName = result.ticket?.customerName || 'Unknown';
+                    const eventName = result.ticket?.eventName || 'Event';
+                    const ticketNumber = result.ticket?.number || result.ticket?.id || '';
+                    
+                    showResult(`✅ VALID TICKET<br>
+                        <strong>${customerName}</strong><br>
+                        ${eventName}<br>
+                        ${ticketNumber ? `Ticket: ${ticketNumber}` : ''}`, 'valid');
+                    playSound('success');
+                    validCount++;
+                } else {
+                    showResult(`❌ INVALID TICKET<br>
+                        ${result.message}<br>
+                        ${result.error || ''}`, 'invalid');
+                    playSound('error');
+                    invalidCount++;
+                }
+
+                updateStats();
+
+            } catch (error) {
+                console.error('Validation API error:', error);
+                showResult(`❌ Connection error.<br>
+                    ${apiMode === 'local' ? 'Check if server is running' : 'Check internet connection'}`, 'invalid');
+                playSound('error');
+                invalidCount++;
+                updateStats();
+            }
+        }
+
+        // Manual ticket validation
+        async function validateManual() {
+            const input = document.getElementById('manualInput').value.trim();
+
+            if (!input) {
+                showResult('❌ Please enter ticket information', 'invalid');
+                return;
+            }
+
+            const ticketData = {
+                qrCode: input,
+                ticketNumber: input,
+                ticketId: input
+            };
+
+            await validateTicket(ticketData);
+
+            // Clear input
+            document.getElementById('manualInput').value = '';
+        }
+
+        // Show validation result
+        function showResult(message, type) {
+            resultDiv.innerHTML = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.classList.remove('hidden');
+
+            // Auto-hide after 5 seconds for loading messages
+            if (type === 'loading') {
+                setTimeout(() => {
+                    if (resultDiv.classList.contains('loading')) {
+                        resultDiv.classList.add('hidden');
+                    }
+                }, 5000);
+            }
+        }
+
+        // Play sound feedback
+        function playSound(type) {
+            if (!soundEnabled.checked) return;
+
+            const sound = type === 'success' ? successSound : errorSound;
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log('Sound play failed:', e));
+        }
+
+        // Update statistics
+        function updateStats() {
+            document.getElementById('validCount').textContent = validCount;
+            document.getElementById('invalidCount').textContent = invalidCount;
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startCamera);
+        stopBtn.addEventListener('click', stopCamera);
+        switchBtn.addEventListener('click', switchCamera);
+
+        // Enter key for manual validation
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.target.id === 'manualInput') {
+                validateManual();
+            }
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initScanner();
+
+            // Load saved settings
+            const savedApiMode = localStorage.getItem('locanoche_api_mode') || 'local';
+            setApiMode(savedApiMode);
+
+            // Load saved statistics
+            const savedValid = localStorage.getItem('locanoche_valid_count');
+            const savedInvalid = localStorage.getItem('locanoche_invalid_count');
+
+            if (savedValid) validCount = parseInt(savedValid);
+            if (savedInvalid) invalidCount = parseInt(savedInvalid);
+
+            updateStats();
+        });
+
+        // Save statistics on page unload
+        window.addEventListener('beforeunload', () => {
+            localStorage.setItem('locanoche_valid_count', validCount);
+            localStorage.setItem('locanoche_invalid_count', invalidCount);
+        });
+
+        // Make functions available globally
+        window.validateManual = validateManual;
+        window.setApiMode = setApiMode;
+    </script>
+</body>
+</html>

@@ -90,6 +90,13 @@ All API routes follow RESTful conventions in `app/api/`:
 - **UI Components**: Pre-configured shadcn components in `/components/ui/`
 - **Import Alias**: Use `@/` for root imports (e.g., `@/lib/utils`)
 
+#### Key Booking Components:
+- **TicketSelector** (`/components/booking/TicketSelector.tsx`):
+  - Handles mixed ticket selection with quantity controls
+  - Supports adult/child ticket combinations
+  - Real-time total calculation and purchase flow
+  - Sends structured data to payment API
+
 ## Development Workflow
 
 ### Database Changes
@@ -105,16 +112,64 @@ All API routes follow RESTful conventions in `app/api/`:
 - Run before commit: `npm run test && npm run lint`
 
 ### Payment Integration
-VivaPayments webhook expects:
-- Endpoint: `/api/payments/webhook`
-- Verification: Signature validation
-- Status updates: Booking confirmation on successful payment
-- Error handling: Proper status codes and logging
+
+**N8N + VivaPayments Integration**: Complete automation system with dual payment processing:
+
+#### N8N Workflow Endpoints:
+- **Event 1 (Minus One)**: `/webhook/loca-noche-event1-payment` (Payment Code: 1309)
+- **Event 2 (Giannis Margaris)**: `/webhook/loca-noche-event2-payment` (Payment Code: 5711)
+
+#### Payment Flow Architecture:
+1. **Frontend**: `TicketSelector` component handles mixed ticket selection
+2. **API**: `/api/payments/n8n` supports both mixed and legacy ticket formats
+3. **N8N Service**: `lib/payment/n8n-payment.ts` manages webhook communication
+4. **Workflows**: Automated Viva OAuth + payment order creation
+
+#### Mixed Ticket Support:
+- **New Format**: Sends `preCalculated: true` with `totalAmount` and `totalQuantity`
+- **Legacy Format**: Single ticket type with `ticketType` and `quantity`
+- **Backward Compatible**: N8N workflows handle both formats seamlessly
+
+#### Environment Variables:
+Required environment variables for payment processing and N8N integration:
+- `N8N_EVENT1_WEBHOOK_URL`: Webhook endpoint for Event 1 payment processing
+- `N8N_EVENT2_WEBHOOK_URL`: Webhook endpoint for Event 2 payment processing
+- `VIVA_API_KEY`: VivaPayments API key
+- `VIVA_CLIENT_ID`: VivaPayments OAuth client ID
+- `VIVA_CLIENT_SECRET`: VivaPayments OAuth client secret
+- `VIVA_MERCHANT_ID`: VivaPayments merchant identifier
+
+#### Pricing Structure:
+- Adult tickets: €10 each
+- Child tickets: €5 each
+- Mixed selections: Frontend calculates total, N8N uses pre-calculated amount
 
 ### Build Configuration
 The `next.config.mjs` intentionally ignores TypeScript/ESLint errors during build for rapid development. Ensure code quality with:
 - `npm run lint` before commits
 - `npm run test:coverage` for test validation
+
+### N8N Automation Workflows
+
+The platform uses N8N for automated payment processing:
+
+#### Workflow Structure (Both Events):
+1. **Webhook Trigger**: Receives payment requests from frontend
+2. **Viva OAuth**: Automatically obtains access token
+3. **Payment Logic**: Handles both mixed and legacy ticket calculations
+4. **Viva API**: Creates payment orders with correct amounts
+5. **Response**: Returns payment URL and order details
+
+#### Debugging Workflows:
+- **Test Mixed Tickets**: Send `preCalculated: true` with `totalAmount`
+- **Test Legacy**: Send `ticketType` and `quantity` only
+- **Console Logs**: Check N8N execution logs for calculation details
+- **Webhook URLs**: Both production webhooks are active and tested
+
+#### MCP N8N Integration:
+- Use `mcp__n8n-mcp__*` tools for workflow management
+- Can update workflows programmatically via MCP tools
+- Full validation and testing capabilities through MCP
 
 ## Important Guidelines
 

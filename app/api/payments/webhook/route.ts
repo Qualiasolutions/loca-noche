@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { vivaPaymentService } from '@/lib/payment/viva-payment'
+import { emailService } from '@/lib/email/email-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,8 +91,35 @@ export async function POST(request: NextRequest) {
             })
           }
 
-          // TODO: Send confirmation email with tickets
+          // Send confirmation email with tickets
+          try {
+            const bookingWithDetails = await prisma.booking.findUnique({
+              where: { id: payment.booking!.id },
+              include: {
+                event: {
+                  include: {
+                    venue: true
+                  }
+                },
+                tickets: {
+                  include: {
+                    ticketType: true
+                  }
+                },
+                user: true
+              }
+            })
+            
+            if (bookingWithDetails) {
+              await emailService.sendBookingConfirmation(bookingWithDetails)
+              console.log(`✅ Confirmation email sent for booking ${bookingWithDetails.bookingReference}`)
+            }
+          } catch (emailError) {
+            console.error('❌ Failed to send confirmation email:', emailError)
+            // Don't fail the webhook if email fails - booking is still valid
+          }
         } else {
+          // Payment failed
           // Release reserved tickets
           await tx.ticket.updateMany({
             where: { bookingId: payment.booking!.id },
@@ -113,6 +141,33 @@ export async function POST(request: NextRequest) {
                 },
               },
             })
+          }
+
+          // Send payment failure email
+          try {
+            const bookingWithDetails = await prisma.booking.findUnique({
+              where: { id: payment.booking!.id },
+              include: {
+                event: {
+                  include: {
+                    venue: true
+                  }
+                },
+                tickets: {
+                  include: {
+                    ticketType: true
+                  }
+                },
+                user: true
+              }
+            })
+            
+            if (bookingWithDetails) {
+              await emailService.sendPaymentFailedNotification(bookingWithDetails)
+              console.log(`✅ Payment failed email sent for booking ${bookingWithDetails.bookingReference}`)
+            }
+          } catch (emailError) {
+            console.error('❌ Failed to send payment failed email:', emailError)
           }
         }
       })

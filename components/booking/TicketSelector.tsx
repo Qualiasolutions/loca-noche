@@ -15,19 +15,26 @@ interface TicketType {
   description: string
 }
 
+interface TicketSelection {
+  ticketTypeId: string
+  ticketTypeName: string
+  quantity: number
+  price: number
+}
+
 interface TicketSelectorProps {
   eventId: string
   eventTitle: string
   ticketTypes: TicketType[]
-  onPurchase?: (eventId: string, ticketType: string, quantity: number, total: number) => void
+  onPurchase?: (eventId: string, ticketSelections: TicketSelection[], total: number) => void
 }
 
-interface TicketSelection {
+interface TicketSelectionState {
   [ticketTypeId: string]: number
 }
 
 export function TicketSelector({ eventId, eventTitle, ticketTypes, onPurchase }: TicketSelectorProps) {
-  const [selections, setSelections] = useState<TicketSelection>({})
+  const [selections, setSelections] = useState<TicketSelectionState>({})
   const [isLoading, setIsLoading] = useState(false)
 
   const updateQuantity = (ticketTypeId: string, change: number) => {
@@ -60,16 +67,23 @@ export function TicketSelector({ eventId, eventTitle, ticketTypes, onPurchase }:
 
     setIsLoading(true)
     try {
-      // For now, we'll handle the first selected ticket type
-      // In a more complex scenario, you might need to handle multiple ticket types
-      const firstSelection = Object.entries(selections)[0]
-      if (firstSelection) {
-        const [ticketTypeId, quantity] = firstSelection
-        const ticketType = ticketTypes.find(tt => tt.id === ticketTypeId)
-        if (ticketType && onPurchase) {
+      // Build array of all selected ticket types for mixed ticket support
+      const ticketSelections: TicketSelection[] = Object.entries(selections)
+        .filter(([_, quantity]) => quantity > 0)
+        .map(([ticketTypeId, quantity]) => {
+          const ticketType = ticketTypes.find(tt => tt.id === ticketTypeId)!
           const ticketTypeName = ticketType.name.toLowerCase().includes('child') ? 'child' : 'adult'
-          await onPurchase(eventId, ticketTypeName, quantity, getTotalPrice())
-        }
+
+          return {
+            ticketTypeId,
+            ticketTypeName,
+            quantity,
+            price: ticketType.price
+          }
+        })
+
+      if (ticketSelections.length > 0 && onPurchase) {
+        await onPurchase(eventId, ticketSelections, getTotalPrice())
       }
     } catch (error) {
       console.error('Purchase error:', error)

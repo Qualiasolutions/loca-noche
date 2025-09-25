@@ -1,14 +1,72 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { CheckCircle, Home } from "lucide-react"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { CheckCircle, Home, Mail, Ticket, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { LogoHeader } from "@/components/logo-header"
 
-export default function PaymentSuccessPage() {
-  const [countdown, setCountdown] = useState(10)
+function PaymentSuccessContent() {
+  const [countdown, setCountdown] = useState(15)
+  const [ticketStatus, setTicketStatus] = useState<'generating' | 'sent' | 'error'>('generating')
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Trigger ticket generation when page loads
+  useEffect(() => {
+    const triggerTicketGeneration = async () => {
+      try {
+        // Get payment data from URL params
+        const orderId = searchParams.get('orderId')
+        const eventId = searchParams.get('eventId') || 'event1'
+        const customerEmail = searchParams.get('customerEmail')
+        const customerName = searchParams.get('customerName')
+        const totalAmount = searchParams.get('totalAmount')
+        const totalQuantity = searchParams.get('totalQuantity')
+        const adultTickets = searchParams.get('adultTickets')
+        const childTickets = searchParams.get('childTickets')
+
+        if (!orderId || !customerEmail) {
+          console.warn('Missing payment data, skipping ticket generation')
+          setTicketStatus('error')
+          return
+        }
+
+        // Call N8N webhook to generate tickets
+        const response = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId,
+            eventId,
+            customerEmail,
+            customerName: decodeURIComponent(customerName || ''),
+            totalAmount: parseFloat(totalAmount || '0'),
+            totalQuantity: parseInt(totalQuantity || '1'),
+            adultTickets: parseInt(adultTickets || '0'),
+            childTickets: parseInt(childTickets || '0'),
+            status: 'SUCCESS'
+          }),
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          console.log('Tickets generated successfully:', result)
+          setTicketStatus('sent')
+        } else {
+          console.error('Failed to generate tickets:', response.statusText)
+          setTicketStatus('error')
+        }
+      } catch (error) {
+        console.error('Error generating tickets:', error)
+        setTicketStatus('error')
+      }
+    }
+
+    triggerTicketGeneration()
+  }, [searchParams])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -71,9 +129,52 @@ export default function PaymentSuccessPage() {
               <p className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-4 sm:mb-6 font-light leading-relaxed px-2">
                 Your tickets have been <span className="text-white font-semibold">successfully purchased!</span>
               </p>
-              
+
+              {/* Ticket Generation Status */}
+              <div className="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 sm:p-8 mb-8 sm:mb-12 max-w-xl mx-auto backdrop-blur-sm">
+                {ticketStatus === 'generating' && (
+                  <div className="flex items-center justify-center space-x-3 text-yellow-400">
+                    <Clock className="w-6 h-6 animate-spin" />
+                    <span className="text-lg font-medium">Generating your tickets...</span>
+                  </div>
+                )}
+
+                {ticketStatus === 'sent' && (
+                  <div className="text-center space-y-3">
+                    <div className="flex items-center justify-center space-x-3 text-green-400">
+                      <Mail className="w-6 h-6" />
+                      <span className="text-lg font-medium">Tickets sent to your email!</span>
+                    </div>
+                    <div className="flex items-center justify-center space-x-2 text-sm text-gray-400">
+                      <Ticket className="w-4 h-4" />
+                      <span>Each ticket includes a unique QR code for venue entry</span>
+                    </div>
+                  </div>
+                )}
+
+                {ticketStatus === 'error' && (
+                  <div className="text-center space-y-3">
+                    <div className="flex items-center justify-center space-x-3 text-red-400">
+                      <span className="text-lg font-medium">⚠️ Ticket generation error</span>
+                    </div>
+                    <p className="text-sm text-gray-400">
+                      Don't worry! Your payment was successful. Please contact support at{' '}
+                      <a href="mailto:support@locanoche.cy" className="text-green-400 hover:text-green-300">
+                        support@locanoche.cy
+                      </a>
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <p className="text-sm sm:text-base md:text-lg text-gray-400 mb-8 sm:mb-12 max-w-xl mx-auto px-2">
-                Check your email for confirmation and ticket details. See you at the event!
+                {ticketStatus === 'sent' ? (
+                  <>Check your email for your tickets with QR codes. Present them at the venue entrance. See you at the event!</>
+                ) : ticketStatus === 'generating' ? (
+                  <>Please wait while we generate your tickets with QR codes. This usually takes a few seconds.</>
+                ) : (
+                  <>Your payment was processed successfully. We'll send your tickets shortly via email.</>
+                )}
               </p>
 
               {/* Countdown and CTA */}
@@ -104,5 +205,20 @@ export default function PaymentSuccessPage() {
       {/* Bottom Fade */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent"></div>
     </div>
+  )
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <Clock className="w-8 h-8 animate-spin mx-auto mb-4 text-green-400" />
+          <p className="text-gray-300">Loading...</p>
+        </div>
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   )
 }

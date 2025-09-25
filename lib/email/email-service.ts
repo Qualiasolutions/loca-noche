@@ -1,16 +1,5 @@
-import nodemailer from 'nodemailer'
 import { Booking, Event, Venue, Ticket, TicketType, User } from '@prisma/client'
 import { generateQRCodeImage, generateTicketHTML, generateQRCodeData, TicketData } from '@/lib/tickets/qr-generator'
-
-interface EmailConfig {
-  host: string
-  port: number
-  secure: boolean
-  auth: {
-    user: string
-    pass: string
-  }
-}
 
 export interface BookingWithDetails extends Booking {
   event: Event & {
@@ -23,56 +12,56 @@ export interface BookingWithDetails extends Booking {
 }
 
 export class EmailService {
-  private transporter: nodemailer.Transporter
+  private brevoApiKey: string
+  private fromEmail: string
+  private fromName: string
 
   constructor() {
-    const config: EmailConfig = {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASSWORD || '',
-      },
-    }
+    this.brevoApiKey = process.env.BREVO_API_KEY || ''
+    this.fromEmail = process.env.EMAIL_FROM || 'noreply@locanoche.com'
+    this.fromName = process.env.EMAIL_FROM_NAME || 'Loca Noche'
 
-    this.transporter = nodemailer.createTransporter(config)
+    if (!this.brevoApiKey) {
+      console.warn('BREVO_API_KEY not configured - emails will not be sent')
+    }
   }
 
   async sendBookingConfirmation(booking: BookingWithDetails): Promise<void> {
     try {
-      // Generate tickets with QR codes
-      const ticketAttachments = []
-      
-      for (const ticket of booking.tickets) {
-        const ticketData: TicketData = {
-          ticket: ticket as any,
-          event: booking.event,
-        }
-        
-        const qrCodeData = generateQRCodeData(ticketData)
-        const qrCodeImage = await generateQRCodeImage(qrCodeData)
-        const ticketHTML = generateTicketHTML(ticketData, qrCodeImage)
-        
-        ticketAttachments.push({
-          filename: `ticket-${ticket.qrCode}.html`,
-          content: ticketHTML,
-          contentType: 'text/html',
-        })
+      if (!this.brevoApiKey) {
+        console.error('BREVO_API_KEY not configured')
+        return
       }
 
-      const subject = `Booking Confirmed - ${booking.event.title}`
+      const subject = `🎭 Booking Confirmed - ${booking.event.title}`
       const emailHTML = this.generateBookingConfirmationHTML(booking)
 
-      await this.transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'noreply@locanoche.com',
-        to: booking.customerEmail,
-        subject,
-        html: emailHTML,
-        attachments: ticketAttachments,
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': this.brevoApiKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: this.fromName, email: this.fromEmail },
+          to: [{ email: booking.customerEmail, name: booking.customerName }],
+          subject,
+          htmlContent: emailHTML,
+          replyTo: { email: this.fromEmail, name: this.fromName }
+        })
       })
 
-      console.log(`Booking confirmation email sent to ${booking.customerEmail}`)
+      if (response.ok) {
+        console.log(`✅ Booking confirmation email sent to ${booking.customerEmail}`)
+        
+        // Send admin notification
+        await this.sendAdminNotification(booking)
+      } else {
+        const errorText = await response.text()
+        console.error(`❌ Brevo API error:`, errorText)
+        throw new Error(`Brevo API error: ${errorText}`)
+      }
     } catch (error) {
       console.error('Error sending booking confirmation email:', error)
       throw error
@@ -81,17 +70,37 @@ export class EmailService {
 
   async sendPaymentFailedNotification(booking: BookingWithDetails): Promise<void> {
     try {
-      const subject = `Payment Failed - ${booking.event.title}`
+      if (!this.brevoApiKey) {
+        console.error('BREVO_API_KEY not configured')
+        return
+      }
+
+      const subject = `⚠️ Payment Failed - ${booking.event.title}`
       const emailHTML = this.generatePaymentFailedHTML(booking)
 
-      await this.transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'noreply@locanoche.com',
-        to: booking.customerEmail,
-        subject,
-        html: emailHTML,
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': this.brevoApiKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: this.fromName, email: this.fromEmail },
+          to: [{ email: booking.customerEmail, name: booking.customerName }],
+          subject,
+          htmlContent: emailHTML,
+          replyTo: { email: this.fromEmail, name: this.fromName }
+        })
       })
 
-      console.log(`Payment failed email sent to ${booking.customerEmail}`)
+      if (response.ok) {
+        console.log(`✅ Payment failed email sent to ${booking.customerEmail}`)
+      } else {
+        const errorText = await response.text()
+        console.error(`❌ Brevo API error:`, errorText)
+        throw new Error(`Brevo API error: ${errorText}`)
+      }
     } catch (error) {
       console.error('Error sending payment failed email:', error)
       throw error
@@ -100,20 +109,81 @@ export class EmailService {
 
   async sendEventReminder(booking: BookingWithDetails): Promise<void> {
     try {
-      const subject = `Event Reminder - ${booking.event.title} Tomorrow!`
+      if (!this.brevoApiKey) {
+        console.error('BREVO_API_KEY not configured')
+        return
+      }
+
+      const subject = `🎭 Event Reminder - ${booking.event.title} Tomorrow!`
       const emailHTML = this.generateEventReminderHTML(booking)
 
-      await this.transporter.sendMail({
-        from: process.env.EMAIL_FROM || 'noreply@locanoche.com',
-        to: booking.customerEmail,
-        subject,
-        html: emailHTML,
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': this.brevoApiKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: this.fromName, email: this.fromEmail },
+          to: [{ email: booking.customerEmail, name: booking.customerName }],
+          subject,
+          htmlContent: emailHTML,
+          replyTo: { email: this.fromEmail, name: this.fromName }
+        })
       })
 
-      console.log(`Event reminder email sent to ${booking.customerEmail}`)
+      if (response.ok) {
+        console.log(`✅ Event reminder email sent to ${booking.customerEmail}`)
+      } else {
+        const errorText = await response.text()
+        console.error(`❌ Brevo API error:`, errorText)
+        throw new Error(`Brevo API error: ${errorText}`)
+      }
     } catch (error) {
       console.error('Error sending event reminder email:', error)
       throw error
+    }
+  }
+
+  private async sendAdminNotification(booking: BookingWithDetails): Promise<void> {
+    try {
+      const subject = `💰 New Booking: ${booking.customerName} - €${Number(booking.totalAmount).toFixed(2)}`
+      const adminHTML = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>New Booking Received</h2>
+          <div style="background: #f9f9f9; padding: 20px; border-radius: 8px;">
+            <p><strong>Customer:</strong> ${booking.customerName} (${booking.customerEmail})</p>
+            <p><strong>Event:</strong> ${booking.event.title}</p>
+            <p><strong>Date:</strong> ${new Date(booking.event.eventDate).toLocaleDateString('en-GB')}</p>
+            <p><strong>Venue:</strong> ${booking.event.venue.name}</p>
+            <p><strong>Tickets:</strong> ${booking.quantity}</p>
+            <p><strong>Amount:</strong> €${Number(booking.totalAmount).toFixed(2)}</p>
+            <p><strong>Booking Reference:</strong> ${booking.bookingReference}</p>
+            <p><strong>Customer Phone:</strong> ${booking.customerPhone || 'Not provided'}</p>
+          </div>
+        </div>
+      `
+
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': this.brevoApiKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { name: 'Loca Noche Bookings', email: this.fromEmail },
+          to: [{ email: 'Locanocheuk@hotmail.com' }],
+          subject,
+          htmlContent: adminHTML,
+          replyTo: { email: booking.customerEmail, name: booking.customerName }
+        })
+      })
+
+      console.log('✅ Admin notification sent')
+    } catch (error) {
+      console.error('Error sending admin notification:', error)
     }
   }
 

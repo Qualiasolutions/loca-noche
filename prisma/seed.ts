@@ -194,6 +194,61 @@ async function main() {
     }
   })
 
+  // Create simplified event records for N8N workflow compatibility
+  console.log('Creating N8N-compatible event records...')
+
+  await prisma.event.upsert({
+    where: { id: 'event1' },
+    update: {},
+    create: {
+      id: 'event1',
+      title: 'Oktoberfest - Minus One',
+      slug: 'event1',
+      description: 'Lakatamia Hofbräu Oktoberfest with Minus One',
+      shortDescription: 'Oktoberfest with Minus One',
+      category: 'FESTIVAL',
+      status: 'PUBLISHED',
+      venueId: venue.id,
+      eventDate: new Date('2024-10-11T17:00:00Z'),
+      startTime: new Date('2024-10-11T17:00:00Z'),
+      endTime: new Date('2024-10-12T00:00:00Z'),
+      capacity: 300,
+      images: [
+        'https://i.ibb.co/DDXtKYmG/NICOSIA-Instagram-Post-45-7.png'
+      ],
+      videos: [],
+      tags: ['oktoberfest', 'minus-one'],
+      featured: true,
+      publishedAt: new Date()
+    }
+  })
+
+  await prisma.event.upsert({
+    where: { id: 'event2' },
+    update: {},
+    create: {
+      id: 'event2',
+      title: 'Oktoberfest - Giannis Margaris',
+      slug: 'event2',
+      description: 'Lakatamia Hofbräu Oktoberfest with Giannis Margaris',
+      shortDescription: 'Oktoberfest with Giannis Margaris',
+      category: 'FESTIVAL',
+      status: 'PUBLISHED',
+      venueId: venue.id,
+      eventDate: new Date('2024-10-12T17:00:00Z'),
+      startTime: new Date('2024-10-12T17:00:00Z'),
+      endTime: new Date('2024-10-13T00:00:00Z'),
+      capacity: 300,
+      images: [
+        'https://i.ibb.co/S42KhYHF/NICOSIA-Instagram-Post-45-6.png'
+      ],
+      videos: [],
+      tags: ['oktoberfest', 'giannis-margaris'],
+      featured: true,
+      publishedAt: new Date()
+    }
+  })
+
   console.log('✅ Database seeded successfully!')
   console.log('🎪 Created venue: River Park Lakatamia')
   console.log('🎫 Created 2 Oktoberfest events with ticket types')
