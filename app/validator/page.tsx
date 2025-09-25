@@ -124,9 +124,6 @@ export default function ValidatorPage() {
 
       const QrScanner = (window as any).QrScanner
 
-      // Set local worker path to avoid CORS issues
-      QrScanner.WORKER_PATH = '/qr-scanner-worker.min.js'
-
       setResult({ message: 'Initializing camera...', type: 'loading' })
 
       const scanner = new QrScanner(
@@ -250,22 +247,31 @@ export default function ValidatorPage() {
 
       if (result.valid) {
         setResult({
-          message: `VALID TICKET - ${result.ticket.customerName} - ${result.ticket.eventName}`,
+          message: `✅ VALID - ${result.ticket.customerName} - ${result.ticket.eventName}`,
           type: 'valid'
         })
         setValidCount(v => v + 1)
         if (soundEnabled) playSound('success')
       } else {
         setResult({
-          message: `INVALID - ${result.message}`,
+          message: `❌ ${result.message}`,
           type: 'invalid'
         })
         setInvalidCount(i => i + 1)
         if (soundEnabled) playSound('error')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Validation error:', error)
-      setResult({ message: 'Connection error', type: 'invalid' })
+
+      // More detailed error messages
+      let errorMessage = 'Connection error'
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = 'Network connection failed'
+      } else if (error.message) {
+        errorMessage = `API Error: ${error.message}`
+      }
+
+      setResult({ message: `🔌 ${errorMessage}`, type: 'invalid' })
       setInvalidCount(i => i + 1)
       if (soundEnabled) playSound('error')
     }
@@ -322,6 +328,7 @@ export default function ValidatorPage() {
                 style={{ display: isScanning ? 'block' : 'none' }}
                 playsInline
                 muted
+                autoPlay
               />
               {!isScanning && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-4">

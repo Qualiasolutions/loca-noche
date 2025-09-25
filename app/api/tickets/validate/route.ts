@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('🔍 Validation request received:', { body })
+
     const { ticketNumber, ticketId, qrCode, validatorId, deviceInfo } = body
 
     // Find the ticket using various identifiers
@@ -66,6 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!ticket) {
+      console.log('❌ Ticket not found for:', { qrCode, ticketId, ticketNumber })
       return NextResponse.json({
         valid: false,
         message: 'Ticket not found',
@@ -73,6 +78,8 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString()
       }, { status: 404 })
     }
+
+    console.log('✅ Ticket found:', { id: ticket.id, qrCode: ticket.qrCode, status: ticket.status })
 
     // Check if ticket is valid
     if (ticket.status !== 'VALID') {
@@ -142,14 +149,27 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-  } catch (error) {
-    console.error('Ticket validation error:', error)
+  } catch (error: any) {
+    console.error('🚨 Ticket validation error:', {
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+      meta: error.meta
+    })
+
+    // Return more specific error information for debugging
     return NextResponse.json({
       valid: false,
       message: 'Validation failed',
-      error: 'Internal server error',
-      timestamp: new Date().toISOString()
+      error: process.env.NODE_ENV === 'development'
+        ? `${error.message} ${error.code ? `(${error.code})` : ''}`
+        : 'Internal server error',
+      timestamp: new Date().toISOString(),
+      ...(process.env.NODE_ENV === 'development' && { debug: { code: error.code, meta: error.meta } })
     }, { status: 500 })
+  } finally {
+    // Clean up Prisma connection
+    await prisma.$disconnect()
   }
 }
 

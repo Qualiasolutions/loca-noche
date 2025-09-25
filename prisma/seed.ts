@@ -249,10 +249,88 @@ async function main() {
     }
   })
 
+  // Create test bookings and tickets for QR code validation testing
+  console.log('Creating test tickets with QR codes for validation testing...')
+
+  const minusOneAdultType = await prisma.ticketType.findUnique({
+    where: { id: 'minus-one-adult-ticket' }
+  })
+
+  if (minusOneAdultType) {
+    // Create test booking
+    const testBooking = await prisma.booking.upsert({
+      where: { id: 'test-booking-001' },
+      update: {},
+      create: {
+        id: 'test-booking-001',
+        eventId: minusOneEvent.id,
+        bookingReference: 'LN-TEST-001',
+        quantity: 2,
+        subtotal: 20.00,
+        serviceFee: 2.00,
+        tax: 0.00,
+        totalAmount: 22.00,
+        status: 'CONFIRMED',
+        customerEmail: 'test@example.com',
+        customerName: 'Test Customer',
+        customerPhone: '+35799123456'
+      }
+    })
+
+    // Create test tickets with QR codes
+    await prisma.ticket.upsert({
+      where: { id: 'test-ticket-001' },
+      update: {},
+      create: {
+        id: 'test-ticket-001',
+        bookingId: testBooking.id,
+        ticketTypeId: minusOneAdultType.id,
+        sectionId: mainSection.id,
+        qrCode: 'LN-TEST-QR-001',
+        status: 'VALID'
+      }
+    })
+
+    await prisma.ticket.upsert({
+      where: { id: 'test-ticket-002' },
+      update: {},
+      create: {
+        id: 'test-ticket-002',
+        bookingId: testBooking.id,
+        ticketTypeId: minusOneAdultType.id,
+        sectionId: mainSection.id,
+        qrCode: 'LN-TEST-QR-002',
+        status: 'VALID'
+      }
+    })
+
+    // Create a used ticket for testing
+    await prisma.ticket.upsert({
+      where: { id: 'test-ticket-used' },
+      update: {},
+      create: {
+        id: 'test-ticket-used',
+        bookingId: testBooking.id,
+        ticketTypeId: minusOneAdultType.id,
+        sectionId: mainSection.id,
+        qrCode: 'LN-TEST-QR-USED',
+        status: 'USED',
+        usedAt: new Date('2024-10-11T17:30:00Z'),
+        validatedBy: 'STAFF-TEST'
+      }
+    })
+
+    console.log('✅ Created test tickets:')
+    console.log('   📱 LN-TEST-QR-001 (VALID)')
+    console.log('   📱 LN-TEST-QR-002 (VALID)')
+    console.log('   📱 LN-TEST-QR-USED (USED - for testing)')
+  }
+
   console.log('✅ Database seeded successfully!')
   console.log('🎪 Created venue: River Park Lakatamia')
   console.log('🎫 Created 2 Oktoberfest events with ticket types')
-  console.log('🍺 Ready for bookings!')
+  console.log('🎟️  Created test tickets with QR codes for validation')
+  console.log('🍺 Ready for bookings and QR validation testing!')
 }
 
 main()
