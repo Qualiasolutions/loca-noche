@@ -240,6 +240,17 @@
             border-color: #667eea;
         }
 
+        .api-option.disabled {
+            background: #ccc;
+            color: #999;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .api-option.disabled:hover {
+            background: #ccc;
+        }
+
         @media (max-width: 600px) {
             .validator-container {
                 padding: 20px;
@@ -288,8 +299,8 @@
                 <div class="api-option active" onclick="setApiMode('local')" id="localApi">
                     🏠 Local API
                 </div>
-                <div class="api-option" onclick="setApiMode('n8n')" id="n8nApi">
-                    ☁️ N8N Cloud
+                <div class="api-option disabled" onclick="showN8nOfflineMessage()" id="n8nApi" title="N8N workspace is currently offline">
+                    ☁️ N8N Cloud (Offline)
                 </div>
             </div>
             <small id="apiStatus">Using: Local API (/api/tickets/validate)</small>
@@ -370,10 +381,16 @@
 
             const statusText = mode === 'local'
                 ? 'Using: Local API (/api/tickets/validate)'
-                : 'Using: N8N Cloud (https://tasos8.app.n8n.cloud)';
+                : 'Using: N8N Cloud (https://locanocheproject.app.n8n.cloud)';
 
             document.getElementById('apiStatus').textContent = statusText;
             localStorage.setItem('locanoche_api_mode', mode);
+        }
+
+        function showN8nOfflineMessage() {
+            showResult(`⚠️ N8N Service Currently Offline<br>
+                The N8N workspace subscription may have expired.<br>
+                <strong>Please use Local API mode for ticket validation.</strong>`, 'invalid');
         }
 
         // Get available cameras
@@ -561,7 +578,7 @@
                     };
                 } else {
                     // Use N8N webhook for ticket validation
-                    url = 'https://tasos8.app.n8n.cloud/webhook/loca-noche-ticket-validation';
+                    url = 'https://locanocheproject.app.n8n.cloud/webhook/loca-noche-ticket-validation';
                     options = {
                         method: 'POST',
                         headers: {
@@ -600,8 +617,25 @@
 
             } catch (error) {
                 console.error('Validation API error:', error);
-                showResult(`❌ Connection error.<br>
-                    ${apiMode === 'local' ? 'Check if server is running' : 'Check internet connection'}`, 'invalid');
+
+                if (apiMode === 'n8n') {
+                    // Check if N8N workspace is offline
+                    const errorMessage = error.message || '';
+                    const isWorkspaceOffline = errorMessage.includes('404') ||
+                                              errorMessage.includes('No workspace here');
+
+                    if (isWorkspaceOffline) {
+                        showResult(`❌ N8N Service Unavailable<br>
+                            The N8N workspace appears to be offline or suspended.<br>
+                            <strong>Please try using Local API mode instead.</strong>`, 'invalid');
+                    } else {
+                        showResult(`❌ N8N Connection Failed<br>
+                            Check internet connection or try Local API`, 'invalid');
+                    }
+                } else {
+                    showResult(`❌ Local API Connection Failed<br>
+                        Check if server is running on localhost`, 'invalid');
+                }
                 playSound('error');
                 invalidCount++;
                 updateStats();
@@ -677,8 +711,8 @@
             await initScanner();
 
             // Load saved settings
-            const savedApiMode = localStorage.getItem('locanoche_api_mode') || 'local';
-            setApiMode(savedApiMode);
+            // Force local mode since N8N is offline
+            setApiMode('local');
 
             // Load saved statistics
             const savedValid = localStorage.getItem('locanoche_valid_count');
