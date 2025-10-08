@@ -7,14 +7,15 @@ import { Button } from "@/components/ui/button"
 import { LogoHeader } from "@/components/logo-header"
 
 function PaymentSuccessContent() {
-  const [countdown, setCountdown] = useState(15)
-  const [ticketStatus, setTicketStatus] = useState<'generating' | 'sent' | 'error'>('generating')
+  const [countdown, setCountdown] = useState(30)
+  const [paymentStatus, setPaymentStatus] = useState<'verifying' | 'confirmed' | 'failed' | 'timeout'>('verifying')
+  const [ticketStatus, setTicketStatus] = useState<'pending' | 'generating' | 'sent' | 'error'>('pending')
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Trigger ticket generation when page loads
+  // Verify payment status first, then generate tickets
   useEffect(() => {
-    const triggerTicketGeneration = async () => {
+    const verifyPaymentAndGenerateTickets = async () => {
       try {
         // Get payment data from URL params
         const orderId = searchParams.get('orderId')
@@ -27,45 +28,63 @@ function PaymentSuccessContent() {
         const childTickets = searchParams.get('childTickets')
 
         if (!orderId || !customerEmail) {
-          console.warn('Missing payment data, skipping ticket generation')
-          setTicketStatus('error')
+          console.warn('Missing payment data, cannot verify payment')
+          setPaymentStatus('failed')
           return
         }
 
-        // Call N8N webhook to generate tickets
-        const response = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderId,
-            eventId,
-            customerEmail,
-            customerName: decodeURIComponent(customerName || ''),
-            totalAmount: parseFloat(totalAmount || '0'),
-            totalQuantity: parseInt(totalQuantity || '1'),
-            adultTickets: parseInt(adultTickets || '0'),
-            childTickets: parseInt(childTickets || '0'),
-            status: 'SUCCESS'
-          }),
-        })
+        // First verify payment status
+        const statusResponse = await fetch(`/api/payments/status/${orderId}`)
+        const statusData = await statusResponse.json()
 
-        if (response.ok) {
-          const result = await response.json()
-          console.log('Tickets generated successfully:', result)
-          setTicketStatus('sent')
-        } else {
-          console.error('Failed to generate tickets:', response.statusText)
+        if (statusData.status === 'confirmed') {
+          setPaymentStatus('confirmed')
+          setTicketStatus('generating')
+
+          // Payment confirmed - now generate tickets
+          const response = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              orderId,
+              eventId,
+              customerEmail,
+              customerName: decodeURIComponent(customerName || ''),
+              totalAmount: parseFloat(totalAmount || '0'),
+              totalQuantity: parseInt(totalQuantity || '1'),
+              adultTickets: parseInt(adultTickets || '0'),
+              childTickets: parseInt(childTickets || '0'),
+              status: 'SUCCESS'
+            }),
+          })
+
+          if (response.ok) {
+            const result = await response.json()
+            console.log('Tickets generated successfully:', result)
+            setTicketStatus('sent')
+          } else {
+            console.error('Failed to generate tickets:', response.statusText)
+            setTicketStatus('error')
+          }
+        } else if (statusData.status === 'failed') {
+          setPaymentStatus('failed')
           setTicketStatus('error')
+        } else {
+          // Still processing - check again after delay
+          setTimeout(() => {
+            verifyPaymentAndGenerateTickets()
+          }, 3000)
         }
       } catch (error) {
-        console.error('Error generating tickets:', error)
+        console.error('Error in payment verification/ticket generation:', error)
+        setPaymentStatus('failed')
         setTicketStatus('error')
       }
     }
 
-    triggerTicketGeneration()
+    verifyPaymentAndGenerateTickets()
   }, [searchParams])
 
   useEffect(() => {
@@ -116,30 +135,73 @@ function PaymentSuccessContent() {
                 </div>
               </div>
 
-              {/* Success Message */}
+              {/* Dynamic Status Message */}
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
-                <span className="bg-gradient-to-r from-green-400 via-green-300 to-green-500 bg-clip-text text-transparent">
-                  PAYMENT SUCCESSFUL
-                </span>
+                {paymentStatus === 'verifying' && (
+                  <span className="bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+                    VERIFYING PAYMENT
+                  </span>
+                )}
+                {paymentStatus === 'confirmed' && (
+                  <span className="bg-gradient-to-r from-green-400 via-green-300 to-green-500 bg-clip-text text-transparent">
+                    PAYMENT SUCCESSFUL
+                  </span>
+                )}
+                {paymentStatus === 'failed' && (
+                  <span className="bg-gradient-to-r from-red-400 via-red-300 to-red-500 bg-clip-text text-transparent">
+                    PAYMENT FAILED
+                  </span>
+                )}
+                {paymentStatus === 'timeout' && (
+                  <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-orange-500 bg-clip-text text-transparent">
+                    PAYMENT TIMEOUT
+                  </span>
+                )}
               </h1>
 
-              <div className="h-0.5 sm:h-1 w-20 sm:w-32 bg-gradient-to-r from-green-500 to-yellow-400 mx-auto mb-6 sm:mb-8 rounded-full"></div>
+              <div className={`h-0.5 sm:h-1 w-20 sm:w-32 bg-gradient-to-r mx-auto mb-6 sm:mb-8 rounded-full ${
+                paymentStatus === 'verifying' ? 'from-yellow-500 to-orange-400' :
+                paymentStatus === 'confirmed' ? 'from-green-500 to-yellow-400' :
+                paymentStatus === 'failed' ? 'from-red-500 to-orange-400' :
+                'from-orange-500 to-red-400'
+              }`}></div>
 
-              {/* Success Details */}
+              {/* Status Details */}
               <p className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-4 sm:mb-6 font-light leading-relaxed px-2">
-                Your tickets have been <span className="text-white font-semibold">successfully purchased!</span>
+                {paymentStatus === 'verifying' && (
+                  <span>We are <span className="text-white font-semibold">verifying your payment</span> with the payment provider...</span>
+                )}
+                {paymentStatus === 'confirmed' && ticketStatus === 'generating' && (
+                  <span>Payment confirmed! Your tickets are <span className="text-white font-semibold">being generated</span>...</span>
+                )}
+                {paymentStatus === 'confirmed' && ticketStatus === 'sent' && (
+                  <span>Your tickets have been <span className="text-white font-semibold">successfully purchased!</span></span>
+                )}
+                {paymentStatus === 'failed' && (
+                  <span>Your payment could <span className="text-white font-semibold">not be processed</span>. Please try again.</span>
+                )}
+                {paymentStatus === 'timeout' && (
+                  <span>Your payment session has <span className="text-white font-semibold">timed out</span>. Please start a new booking.</span>
+                )}
               </p>
 
-              {/* Ticket Generation Status */}
+              {/* Payment and Ticket Status */}
               <div className="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 sm:p-8 mb-8 sm:mb-12 max-w-xl mx-auto backdrop-blur-sm">
-                {ticketStatus === 'generating' && (
+                {paymentStatus === 'verifying' && (
+                  <div className="flex items-center justify-center space-x-3 text-yellow-400">
+                    <Clock className="w-6 h-6 animate-spin" />
+                    <span className="text-lg font-medium">Verifying payment status...</span>
+                  </div>
+                )}
+
+                {paymentStatus === 'confirmed' && ticketStatus === 'generating' && (
                   <div className="flex items-center justify-center space-x-3 text-yellow-400">
                     <Clock className="w-6 h-6 animate-spin" />
                     <span className="text-lg font-medium">Generating your tickets...</span>
                   </div>
                 )}
 
-                {ticketStatus === 'sent' && (
+                {paymentStatus === 'confirmed' && ticketStatus === 'sent' && (
                   <div className="text-center space-y-3">
                     <div className="flex items-center justify-center space-x-3 text-green-400">
                       <Mail className="w-6 h-6" />
@@ -152,51 +214,100 @@ function PaymentSuccessContent() {
                   </div>
                 )}
 
-                {ticketStatus === 'error' && (
+                {(paymentStatus === 'failed' || paymentStatus === 'timeout' || ticketStatus === 'error') && (
                   <div className="text-center space-y-3">
                     <div className="flex items-center justify-center space-x-3 text-red-400">
-                      <span className="text-lg font-medium">⚠️ Ticket generation error</span>
+                      <span className="text-lg font-medium">
+                        {paymentStatus === 'failed' ? '❌ Payment Failed' :
+                         paymentStatus === 'timeout' ? '⏰ Session Expired' : '⚠️ Error'}
+                      </span>
                     </div>
                     <p className="text-sm text-gray-400">
-                      Don't worry! Your payment was successful. Please contact support at{' '}
-                      <a href="mailto:support@locanoche.cy" className="text-green-400 hover:text-green-300">
-                        support@locanoche.cy
-                      </a>
+                      {paymentStatus === 'failed' ? 'Your payment was declined or cancelled. Please try again.' :
+                       paymentStatus === 'timeout' ? 'The payment session has expired. Please start a new booking.' :
+                       'An error occurred while processing your request.'}
+                      {paymentStatus === 'failed' && (
+                        <>
+                          {' '}If you believe this is an error, please contact support at{' '}
+                          <a href="mailto:support@locanoche.cy" className="text-green-400 hover:text-green-300">
+                            support@locanoche.cy
+                          </a>
+                        </>
+                      )}
                     </p>
                   </div>
                 )}
               </div>
 
               <p className="text-sm sm:text-base md:text-lg text-gray-400 mb-8 sm:mb-12 max-w-xl mx-auto px-2">
-                {ticketStatus === 'sent' ? (
+                {paymentStatus === 'verifying' ? (
+                  <>Please wait while we verify your payment status. This usually takes a few moments.</>
+                ) : paymentStatus === 'confirmed' && ticketStatus === 'sent' ? (
                   <>Check your email for your tickets with QR codes. Present them at the venue entrance. See you at the event!</>
-                ) : ticketStatus === 'generating' ? (
+                ) : paymentStatus === 'confirmed' && ticketStatus === 'generating' ? (
                   <>Please wait while we generate your tickets with QR codes. This usually takes a few seconds.</>
+                ) : paymentStatus === 'failed' ? (
+                  <>Please try your payment again or contact our support team if you continue to experience issues.</>
+                ) : paymentStatus === 'timeout' ? (
+                  <>Please start a new booking to complete your purchase.</>
                 ) : (
-                  <>Your payment was processed successfully. We'll send your tickets shortly via email.</>
+                  <>Processing your request...</>
                 )}
               </p>
 
-              {/* Countdown and CTA */}
-              <div className="space-y-6 sm:space-y-8">
-                <div className="text-center">
-                  <p className="text-gray-400 text-sm sm:text-base mb-2">
-                    Redirecting to homepage in
-                  </p>
-                  <div className="text-4xl sm:text-5xl font-bold text-yellow-400 mb-4">
-                    {countdown}
+              {/* Countdown and CTA - Only show for successful payments */}
+              {paymentStatus === 'confirmed' && ticketStatus === 'sent' ? (
+                <div className="space-y-6 sm:space-y-8">
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm sm:text-base mb-2">
+                      Redirecting to homepage in
+                    </p>
+                    <div className="text-4xl sm:text-5xl font-bold text-green-400 mb-4">
+                      {countdown}
+                    </div>
                   </div>
-                </div>
 
-                <Button
-                  onClick={() => router.push("/")}
-                  size="lg"
-                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold shadow-2xl shadow-green-500/25 hover:shadow-green-500/40 transition-all duration-300 hover:scale-105 border-0 rounded-xl group"
-                >
-                  <Home className="mr-2 sm:mr-3 w-5 sm:w-6 h-5 sm:h-6 group-hover:rotate-12 transition-transform" />
-                  Back to Home
-                </Button>
-              </div>
+                  <Button
+                    onClick={() => router.push("/")}
+                    size="lg"
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold shadow-2xl shadow-green-500/25 hover:shadow-green-500/40 transition-all duration-300 hover:scale-105 border-0 rounded-xl group"
+                  >
+                    <Home className="mr-2 sm:mr-3 w-5 sm:w-6 h-5 sm:h-6 group-hover:rotate-12 transition-transform" />
+                    Back to Home
+                  </Button>
+                </div>
+              ) : paymentStatus === 'failed' || paymentStatus === 'timeout' ? (
+                <div className="space-y-6 sm:space-y-8">
+                  <Button
+                    onClick={() => router.push("/tickets")}
+                    size="lg"
+                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold shadow-2xl shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-300 hover:scale-105 border-0 rounded-xl group"
+                  >
+                    <Home className="mr-2 sm:mr-3 w-5 sm:w-6 h-5 sm:h-6 group-hover:rotate-12 transition-transform" />
+                    Try Again
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6 sm:space-y-8">
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm sm:text-base mb-2">
+                      Please wait while we process your request
+                    </p>
+                    <div className="text-4xl sm:text-5xl font-bold text-yellow-400 mb-4">
+                      {countdown}
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => router.push("/")}
+                    size="lg"
+                    className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-lg sm:text-xl font-bold shadow-2xl shadow-gray-500/25 hover:shadow-gray-500/40 transition-all duration-300 hover:scale-105 border-0 rounded-xl group"
+                  >
+                    <Home className="mr-2 sm:mr-3 w-5 sm:w-6 h-5 sm:h-6 group-hover:rotate-12 transition-transform" />
+                    Back to Home
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </main>

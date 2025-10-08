@@ -1,183 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { vivaPaymentService } from '@/lib/payment/viva-payment'
-import { emailService } from '@/lib/email/email-service'
+import { n8nPaymentService } from '@/lib/payment/n8n-payment'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { EventTypeId, EventData } = body
 
-    // Validate webhook signature (implement this properly in production)
-    // const signature = request.headers.get('authorization')
-    // if (!vivaPaymentService.validateWebhookSignature(JSON.stringify(body), signature)) {
-    //   return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    // }
+    // Forward Viva Payments webhook to N8N QR Payment Success Generator
+    const n8nWebhookUrl = 'https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success'
 
-    if (EventTypeId === 1796) { // Payment completed
-      const orderCode = EventData?.OrderCode
-      
-      if (!orderCode) {
-        return NextResponse.json({ error: 'Missing order code' }, { status: 400 })
-      }
+    console.log('🔄 Forwarding Viva Payments webhook to N8N:', {
+      eventTypeId: body.EventTypeId,
+      orderCode: body.EventData?.OrderCode || body.OrderCode,
+      timestamp: new Date().toISOString()
+    })
 
-      // Verify payment with Viva Payments
-      const paymentVerification = await vivaPaymentService.verifyPayment(orderCode)
+    const response = await fetch(n8nWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'LocaNoche-Webhook-Forwarder/1.0'
+      },
+      body: JSON.stringify(body)
+    })
 
-      // Find payment record
-      const payment = await prisma.payment.findFirst({
-        where: { gatewayId: orderCode.toString() },
-        include: {
-          booking: {
-            include: {
-              event: true,
-              tickets: true,
-            },
-          },
-        },
+    if (!response.ok) {
+      console.error('❌ Failed to forward to N8N:', {
+        status: response.status,
+        statusText: response.statusText
       })
-
-      if (!payment) {
-        console.error('Payment not found for order code:', orderCode)
-        return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
-      }
-
-      // Update payment status based on verification
-      const isSuccessful = paymentVerification.stateId === 6 // Captured
-      
-      await prisma.$transaction(async (tx) => {
-        // Update payment
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: isSuccessful ? 'COMPLETED' : 'FAILED',
-            processedAt: new Date(),
-            gatewayResponse: paymentVerification as any,
-            ...(paymentVerification.transactionId && {
-              gatewayId: paymentVerification.transactionId,
-            }),
-          },
-        })
-
-        // Update booking
-        await tx.booking.update({
-          where: { id: payment.booking!.id },
-          data: {
-            status: isSuccessful ? 'CONFIRMED' : 'CANCELLED',
-            completedAt: isSuccessful ? new Date() : null,
-          },
-        })
-
-        if (isSuccessful) {
-          // Confirm tickets
-          await tx.ticket.updateMany({
-            where: { bookingId: payment.booking!.id },
-            data: { status: 'VALID' },
-          })
-
-          // Create notification
-          if (payment.booking!.userId) {
-            await tx.notification.create({
-              data: {
-                userId: payment.booking!.userId,
-                type: 'BOOKING_CONFIRMATION',
-                title: 'Booking Confirmed',
-                message: `Your booking for ${payment.booking!.event.title} has been confirmed.`,
-                data: {
-                  bookingId: payment.booking!.id,
-                  eventId: payment.booking!.eventId,
-                },
-              },
-            })
-          }
-
-          // Send confirmation email with tickets
-          try {
-            const bookingWithDetails = await prisma.booking.findUnique({
-              where: { id: payment.booking!.id },
-              include: {
-                event: {
-                  include: {
-                    venue: true
-                  }
-                },
-                tickets: {
-                  include: {
-                    ticketType: true
-                  }
-                },
-                user: true
-              }
-            })
-            
-            if (bookingWithDetails) {
-              await emailService.sendBookingConfirmation(bookingWithDetails)
-              console.log(`✅ Confirmation email sent for booking ${bookingWithDetails.bookingReference}`)
-            }
-          } catch (emailError) {
-            console.error('❌ Failed to send confirmation email:', emailError)
-            // Don't fail the webhook if email fails - booking is still valid
-          }
-        } else {
-          // Payment failed
-          // Release reserved tickets
-          await tx.ticket.updateMany({
-            where: { bookingId: payment.booking!.id },
-            data: { status: 'CANCELLED' },
-          })
-
-          // Decrease sold count on ticket types
-          const ticketsByType = payment.booking!.tickets.reduce((acc, ticket) => {
-            acc[ticket.ticketTypeId] = (acc[ticket.ticketTypeId] || 0) + 1
-            return acc
-          }, {} as Record<string, number>)
-
-          for (const [ticketTypeId, count] of Object.entries(ticketsByType)) {
-            await tx.ticketType.update({
-              where: { id: ticketTypeId },
-              data: {
-                sold: {
-                  decrement: count,
-                },
-              },
-            })
-          }
-
-          // Send payment failure email
-          try {
-            const bookingWithDetails = await prisma.booking.findUnique({
-              where: { id: payment.booking!.id },
-              include: {
-                event: {
-                  include: {
-                    venue: true
-                  }
-                },
-                tickets: {
-                  include: {
-                    ticketType: true
-                  }
-                },
-                user: true
-              }
-            })
-            
-            if (bookingWithDetails) {
-              await emailService.sendPaymentFailedNotification(bookingWithDetails)
-              console.log(`✅ Payment failed email sent for booking ${bookingWithDetails.bookingReference}`)
-            }
-          } catch (emailError) {
-            console.error('❌ Failed to send payment failed email:', emailError)
-          }
-        }
-      })
-
-      console.log(`Payment ${isSuccessful ? 'confirmed' : 'failed'} for booking ${payment.booking!.bookingReference}`)
+      return NextResponse.json(
+        { error: 'Failed to process payment webhook' },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ received: true })
+    const n8nResponse = await response.json()
+    console.log('✅ N8N workflow response:', n8nResponse)
+
+    return NextResponse.json({
+      received: true,
+      forwarded: true,
+      n8nResponse: n8nResponse
+    })
+
   } catch (error) {
-    console.error('Webhook processing error:', error)
+    console.error('❌ Webhook forwarding error:', error)
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       { status: 500 }

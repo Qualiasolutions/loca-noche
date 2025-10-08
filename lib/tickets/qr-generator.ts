@@ -1,4 +1,5 @@
 import QRCode from 'qrcode'
+import { createHash, randomBytes } from 'crypto'
 import { Ticket, Booking, Event, TicketType, Venue } from '@prisma/client'
 
 export interface TicketData {
@@ -22,11 +23,58 @@ export interface QRCodeData {
   verificationUrl: string
 }
 
+/**
+ * Generates a cryptographically secure QR code for a ticket
+ * Format: {bookingReference}-{ticketIndex}-{timestamp}-{randomBytes}-{checksum}
+ */
+export function generateSecureQRCode(bookingReference: string, ticketIndex: number): string {
+  const timestamp = Date.now()
+  const random = randomBytes(8).toString('hex').toUpperCase()
+
+  // Create base string
+  const baseString = `${bookingReference}-${ticketIndex}-${timestamp}-${random}`
+
+  // Generate checksum (first 8 chars of SHA256 hash)
+  const checksum = createHash('sha256')
+    .update(baseString + process.env.QR_SECRET_KEY || 'default-secret')
+    .digest('hex')
+    .substring(0, 8)
+    .toUpperCase()
+
+  return `${baseString}-${checksum}`
+}
+
+/**
+ * Validates QR code format and checksum
+ */
+export function validateQRCode(qrCode: string): boolean {
+  const parts = qrCode.split('-')
+  if (parts.length !== 5) return false
+
+  const [bookingRef, ticketIndexStr, timestampStr, random, checksum] = parts
+
+  // Validate numeric parts
+  const ticketIndex = parseInt(ticketIndexStr)
+  const timestamp = parseInt(timestampStr)
+
+  if (isNaN(ticketIndex) || isNaN(timestamp)) return false
+
+  // Recreate and verify checksum
+  const baseString = `${bookingRef}-${ticketIndex}-${timestamp}-${random}`
+  const expectedChecksum = createHash('sha256')
+    .update(baseString + process.env.QR_SECRET_KEY || 'default-secret')
+    .digest('hex')
+    .substring(0, 8)
+    .toUpperCase()
+
+  return checksum === expectedChecksum
+}
+
 export function generateQRCodeData(ticketData: TicketData): QRCodeData {
   const { ticket, event } = ticketData
-  
+
   const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify/${ticket.qrCode}`
-  
+
   return {
     ticketId: ticket.id,
     bookingReference: ticket.booking.bookingReference,

@@ -125,7 +125,7 @@ export default function TicketsPage() {
       const paymentResponse = await response.json()
 
       if (paymentResponse.success && paymentResponse.paymentUrl) {
-        // Calculate ticket breakdown for URL params
+        // Calculate ticket breakdown
         const adultTickets = selectedPurchase.ticketSelections
           .filter(t => t.ticketTypeName === 'adult')
           .reduce((sum, t) => sum + t.quantity, 0)
@@ -135,28 +135,10 @@ export default function TicketsPage() {
           .reduce((sum, t) => sum + t.quantity, 0)
 
         const totalQuantity = adultTickets + childTickets
+        const customerName = `${customerData.firstName} ${customerData.lastName}`
 
-        // Create success page URL with customer data for ticket generation
-        const successUrl = new URL('/success', window.location.origin)
-        successUrl.searchParams.set('orderId', paymentResponse.orderCode)
-        successUrl.searchParams.set('eventId', selectedPurchase.eventId)
-        successUrl.searchParams.set('customerEmail', customerData.email)
-        successUrl.searchParams.set('customerName', encodeURIComponent(`${customerData.firstName} ${customerData.lastName}`))
-        successUrl.searchParams.set('totalAmount', selectedPurchase.total.toString())
-        successUrl.searchParams.set('totalQuantity', totalQuantity.toString())
-        successUrl.searchParams.set('adultTickets', adultTickets.toString())
-        successUrl.searchParams.set('childTickets', childTickets.toString())
-
-        // Store success URL for after payment
-        sessionStorage.setItem('successUrl', successUrl.toString())
-
-        // Open payment page in new tab
-        window.open(paymentResponse.paymentUrl, '_blank')
-
-        // Show success message or redirect after a delay
-        setTimeout(() => {
-          window.location.href = successUrl.toString()
-        }, 3000)
+        // Redirect to VivaPayments in same tab
+        window.location.href = paymentResponse.paymentUrl
       } else {
         alert(`Payment creation failed: ${paymentResponse.error || 'Unknown error'}`)
       }
@@ -173,6 +155,7 @@ export default function TicketsPage() {
     setSelectedPurchase(null)
   }
 
+  
   // Use fetched events or fallback to static data
   const upcomingEvents = events.length > 0 ? events : [
     {
@@ -348,7 +331,7 @@ export default function TicketsPage() {
         </main>
       </div>
 
-
+      
       <style jsx>{`
         @keyframes slideInFromRight {
           0% {
