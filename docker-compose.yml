@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: locanoche-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: locanoche
+      POSTGRES_USER: locanoche_user
+      POSTGRES_PASSWORD: locanoche_secure_password_2024
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U locanoche_user -d locanoche"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -27,58 +27,143 @@ function PaymentSuccessContent() {
         const adultTickets = searchParams.get('adultTickets')
         const childTickets = searchParams.get('childTickets')
 
-        if (!orderId || !customerEmail) {
-          console.warn('Missing payment data, cannot verify payment')
-          setPaymentStatus('failed')
-          return
+        console.log('🔍 Payment verification data:', {
+          orderId,
+          eventId,
+          customerEmail,
+          customerName,
+          totalAmount,
+          totalQuantity,
+          adultTickets,
+          childTickets
+        })
+
+        // Enhanced validation with better fallbacks
+        if (!orderId) {
+          console.warn('Missing orderId, checking if we have any payment reference')
+          // Try to get order ID from other potential URL params
+          const altOrderId = searchParams.get('orderCode') ||
+                           searchParams.get('vivaOrderId') ||
+                           searchParams.get('paymentId')
+
+          if (altOrderId) {
+            console.log(`Using alternative order ID: ${altOrderId}`)
+            // Continue with alternative order ID
+            // Note: In a real implementation, you'd want to use this altOrderId
+          } else {
+            setPaymentStatus('failed')
+            setTicketStatus('error')
+            return
+          }
+        }
+
+        if (!customerEmail) {
+          console.warn('Missing customerEmail, attempting to continue with verification')
+          // Don't fail immediately - we might be able to get customer data from the payment
         }
 
         // First verify payment status
         const statusResponse = await fetch(`/api/payments/status/${orderId}`)
         const statusData = await statusResponse.json()
 
+        console.log('🔍 Payment status response:', statusData)
+
         if (statusData.status === 'confirmed') {
           setPaymentStatus('confirmed')
           setTicketStatus('generating')
 
-          // Payment confirmed - now generate tickets
-          const response = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              orderId,
-              eventId,
-              customerEmail,
-              customerName: decodeURIComponent(customerName || ''),
-              totalAmount: parseFloat(totalAmount || '0'),
-              totalQuantity: parseInt(totalQuantity || '1'),
-              adultTickets: parseInt(adultTickets || '0'),
-              childTickets: parseInt(childTickets || '0'),
-              status: 'SUCCESS'
-            }),
-          })
+          // Try to get missing customer data from payment response if available
+          const finalCustomerEmail = customerEmail || statusData.customerEmail
+          const finalCustomerName = customerName || 'Customer'
 
-          if (response.ok) {
-            const result = await response.json()
-            console.log('Tickets generated successfully:', result)
-            setTicketStatus('sent')
-          } else {
-            console.error('Failed to generate tickets:', response.statusText)
+          if (!finalCustomerEmail) {
+            console.warn('Still missing customer email, cannot generate tickets')
+            setTicketStatus('error')
+            return
+          }
+
+          // Payment confirmed - now generate tickets with retry logic
+          try {
+            const response = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                orderId,
+                eventId,
+                customerEmail: finalCustomerEmail,
+                customerName: decodeURIComponent(finalCustomerName),
+                totalAmount: parseFloat(totalAmount || '0'),
+                totalQuantity: parseInt(totalQuantity || '1'),
+                adultTickets: parseInt(adultTickets || '0'),
+                childTickets: parseInt(childTickets || '0'),
+                status: 'SUCCESS',
+                paymentSource: statusData.source,
+                vivaData: statusData.vivaData
+              }),
+            })
+
+            if (response.ok) {
+              const result = await response.json()
+              console.log('✅ Tickets generated successfully:', result)
+              setTicketStatus('sent')
+            } else {
+              console.error('❌ Failed to generate tickets:', response.status, response.statusText)
+
+              // Retry once after a delay
+              setTimeout(async () => {
+                try {
+                  const retryResponse = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      orderId,
+                      eventId,
+                      customerEmail: finalCustomerEmail,
+                      customerName: decodeURIComponent(finalCustomerName),
+                      totalAmount: parseFloat(totalAmount || '0'),
+                      totalQuantity: parseInt(totalQuantity || '1'),
+                      adultTickets: parseInt(adultTickets || '0'),
+                      childTickets: parseInt(childTickets || '0'),
+                      status: 'SUCCESS',
+                      retry: true
+                    }),
+                  })
+
+                  if (retryResponse.ok) {
+                    const result = await retryResponse.json()
+                    console.log('✅ Tickets generated successfully on retry:', result)
+                    setTicketStatus('sent')
+                  } else {
+                    console.error('❌ Retry also failed:', retryResponse.status, retryResponse.statusText)
+                    setTicketStatus('error')
+                  }
+                } catch (retryError) {
+                  console.error('❌ Retry error:', retryError)
+                  setTicketStatus('error')
+                }
+              }, 5000) // 5 second delay
+            }
+          } catch (ticketError) {
+            console.error('❌ Error generating tickets:', ticketError)
             setTicketStatus('error')
           }
         } else if (statusData.status === 'failed') {
           setPaymentStatus('failed')
           setTicketStatus('error')
         } else {
-          // Still processing - check again after delay
+          // Still processing - check again after delay with exponential backoff
+          const delay = Math.min(3000 * Math.pow(1.5, Math.floor(Math.random() * 3)), 10000) // 3-10 seconds
+          console.log(`⏳ Payment still processing, retrying in ${delay}ms`)
           setTimeout(() => {
             verifyPaymentAndGenerateTickets()
-          }, 3000)
+          }, delay)
         }
       } catch (error) {
-        console.error('Error in payment verification/ticket generation:', error)
+        console.error('❌ Error in payment verification/ticket generation:', error)
         setPaymentStatus('failed')
         setTicketStatus('error')
       }

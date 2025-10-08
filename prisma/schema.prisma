@@ -185,6 +185,7 @@ model Booking {
   totalAmount       Decimal
   status            BookingStatus @default(PENDING)
   paymentId         String?   @unique
+  vivaOrderCode     String?   @unique
   customerEmail     String
   customerPhone     String?
   customerName      String
