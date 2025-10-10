@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const webhookUrl = process.env.N8N_EVENT1_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-noche-event1-payment'
+    const webhookUrl = process.env.N8N_EVENT1_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-event1-payment-v2'
 
     console.log('Testing N8N webhook:', webhookUrl)
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-      webhookUrl: process.env.N8N_EVENT1_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-noche-event1-payment'
+      webhookUrl: process.env.N8N_EVENT1_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-event1-payment-v2'
     })
   }
 }
