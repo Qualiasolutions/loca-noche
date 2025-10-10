@@ -1,0 +1,404 @@
+{
+  "name": "LocaNoche Event 1 - Minus One Payment Processing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "loca-noche-event1-payment",
+        "options": {}
+      },
+      "id": "webhook1",
+      "name": "Payment Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "loca-noche-event1-payment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.preCalculated }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if1",
+      "name": "Check Payment Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://demo-api.vivapayments.com/connect/token",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "oauth1",
+      "name": "Get VivaPayments OAuth Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        200
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "viva_payments_oauth",
+          "name": "Viva Payments OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate payment details based on input\nconst data = $input.first().json;\nlet totalAmount, totalQuantity, description;\n\nif (data.preCalculated) {\n  // Pre-calculated amount from frontend\n  totalAmount = data.totalAmount;\n  totalQuantity = data.totalQuantity;\n  description = data.description || 'Mixed Oktoberfest Ticket Purchase';\n} else {\n  // Legacy single ticket type\n  const ticketPrice = data.ticketType === 'child' ? 5 : 10;\n  totalAmount = ticketPrice * data.quantity;\n  totalQuantity = data.quantity;\n  description = `${data.quantity}x ${data.ticketType} - Oktoberfest Ticket Purchase`;\n}\n\n// Generate unique order code\nconst orderCode = '1309-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);\n\n// Customer info if available\nconst customerEmail = data.customerData?.email || 'customer@example.com';\nconst customerName = data.customerData ? `${data.customerData.firstName} ${data.customerData.lastName}` : 'Customer';\n\nreturn [{\n  json: {\n    ...data,\n    totalAmount,\n    totalQuantity,\n    description,\n    orderCode,\n    customerEmail,\n    customerName,\n    paymentCode: '1309',\n    eventName: 'Oktoberfest - Minus One',\n    eventId: '1'\n  }\n}];"
+      },
+      "id": "code1",
+      "name": "Prepare Payment Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://demo-api.vivapayments.com/checkout/v2/orders",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $node.Get VivaPayments OAuth Token.json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"amount\": {{ $node.Prepare Payment Data.json.totalAmount * 100 }},\n  \"customerTrns\": \"{{ $node.Prepare Payment Data.json.description }}\",\n  \"description\": \"{{ $node.Prepare Payment Data.json.description }}\",\n  \"sourceCode\": \"1309\",\n  \"merchantTrns\": \"{{ $node.Prepare Payment Data.json.orderCode }}\",\n  \"customer\": {\n    \"email\": \"{{ $node.Prepare Payment Data.json.customerEmail }}\",\n    \"fullName\": \"{{ $node.Prepare Payment Data.json.customerName }}\",\n    \"requestLang\": \"en\"\n  },\n  \"paymentTimeout\": 1800,\n  \"allowRecurring\": false,\n  \"maxInstallments\": 0,\n  \"preauth\": false,\n  \"tips\": false\n}",
+        "options": {
+          "response": {
+            "response": {
+              "response": {
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      "id": "vivaCreate1",
+      "name": "Create VivaPayments Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "viva_payments_token",
+          "name": "Viva Payments Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"paymentUrl\": \"https://demo.vivapayments.com/web/checkout?ref={{ $json.OrderCode }}\",\n  \"orderCode\": \"{{ $json.OrderCode }}\",\n  \"amount\": {{ $node.Prepare Payment Data.json.totalAmount }},\n  \"quantity\": {{ $node.Prepare Payment Data.json.totalQuantity }},\n  \"event\": \"{{ $node.Prepare Payment Data.json.eventName }}\",\n  \"eventId\": \"{{ $node.Prepare Payment Data.json.eventId }}\",\n  \"description\": \"{{ $node.Prepare Payment Data.json.description }}\",\n  \"paymentCode\": \"{{ $node.Prepare Payment Data.json.paymentCode }}\"\n}"
+      },
+      "id": "respond1",
+      "name": "Return Payment URL",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "loca-noche-event1-webhook",
+        "options": {}
+      },
+      "id": "webhook2",
+      "name": "VivaPayments Success Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        600
+      ],
+      "webhookId": "loca-noche-event1-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-2",
+              "leftValue": "={{ $json.StatusId }}",
+              "rightValue": "F",
+              "operator": {
+                "type": "string",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if2",
+      "name": "Check Payment Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        460,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate tickets and QR codes\nconst paymentData = $input.first().json;\nconst orderCode = paymentData.MerchantTrns;\nconst totalQuantity = parseInt(paymentData.OrderSource) || 1;\n\n// Generate ticket IDs\nconst tickets = [];\nfor (let i = 0; i < totalQuantity; i++) {\n  const ticketId = 'TKT-' + orderCode + '-' + (i + 1).toString().padStart(3, '0');\n  const qrData = JSON.stringify({\n    ticketId,\n    event: 'Oktoberfest - Minus One',\n    date: '2024-10-11',\n    venue: 'River Park Lakatamia',\n    valid: true\n  });\n  \n  tickets.push({\n    ticketId,\n    qrData,\n    downloadUrl: `https://api.qrserver.com/api/create.php?data=${encodeURIComponent(qrData)}&size=300x300`\n  });\n}\n\nreturn [{\n  json: {\n    paymentData,\n    tickets,\n    orderCode,\n    customerEmail: paymentData.CustomerEmail,\n    totalTickets: totalQuantity\n  }\n}];"
+      },
+      "id": "code2",
+      "name": "Generate Tickets & QR Codes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "tickets@locanoche.com",
+        "toEmail": "={{ $node.Generate Tickets \\u0026 QR Codes.json.customerEmail }}",
+        "subject": "Your Oktoberfest Tickets - Minus One Event",
+        "text": "=\"Thank you for your purchase! Your tickets for Oktoberfest - Minus One are attached.\",\n        "attachments": "binary",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "email1",
+      "name": "Send Tickets Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        500
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "smtp_gmail",
+          "name": "Gmail SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://demo-api.vivapayments.com/checkout/v2/orders/{{ $json.OrderCode }}/transactions",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $node.Get VivaPayments OAuth Token.json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http1",
+      "name": "Verify Transaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "viva_payments_token",
+          "name": "Viva Payments Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Payment Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Payment Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Payment Type": {
+      "main": [
+        [
+          {
+            "node": "Get VivaPayments OAuth Token",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Payment Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Payment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get VivaPayments OAuth Token": {
+      "main": [
+        [
+          {
+            "node": "Create VivaPayments Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Payment Data": {
+      "main": [
+        [
+          {
+            "node": "Create VivaPayments Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create VivaPayments Order": {
+      "main": [
+        [
+          {
+            "node": "Return Payment URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VivaPayments Success Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Payment Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Payment Success": {
+      "main": [
+        [
+          {
+            "node": "Generate Tickets & QR Codes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verify Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Tickets & QR Codes": {
+      "main": [
+        [
+          {
+            "node": "Send Tickets Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 2,
+  "updatedAt": "2025-01-09T10:00:00.000Z",
+  "versionId": "1"
+}

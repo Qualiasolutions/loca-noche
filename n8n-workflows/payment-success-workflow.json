@@ -1,0 +1,115 @@
+{
+  "name": "LocaNoche - Payment Success Handler with QR Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "loca-noche-payment-success",
+        "options": {}
+      },
+      "id": "webhook1",
+      "name": "Payment Success Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "loca-noche-payment-success"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process payment success data from both VivaPayments and our success page\nconst data = $input.first().json;\n\n// Extract essential information\nconst orderId = data.orderId || data.OrderCode || data.MerchantTrns || '';\nconst eventId = data.eventId || (orderId.startsWith('1309') ? '1' : orderId.startsWith('5711') ? '2' : '1');\nconst customerEmail = data.customerEmail || data.CustomerEmail || 'customer@example.com';\nconst customerName = data.customerName || data.FullName || 'Customer';\nconst totalAmount = parseFloat(data.totalAmount || data.Amount || 0);\nconst totalQuantity = parseInt(data.totalQuantity || data.Quantity || 1);\n\n// Determine event details\nconst eventName = eventId === '1' ? 'Oktoberfest - Minus One' : 'Oktoberfest - Giannis Margaris';\nconst eventDate = eventId === '1' ? 'October 11, 2024' : 'October 12, 2024';\nconst eventTime = '17:00 - 00:00';\nconst venue = 'River Park Lakatamia';\n\n// Generate booking reference\nconst bookingReference = 'BK-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);\n\nconsole.log('Processing payment success:', {\n  orderId,\n  eventId,\n  customerEmail,\n  totalQuantity\n});\n\nreturn [{\n  json: {\n    orderId,\n    eventId,\n    eventName,\n    eventDate,\n    eventTime,\n    venue,\n    customerEmail,\n    customerName,\n    totalAmount,\n    totalQuantity,\n    bookingReference,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "code1",
+      "name": "Process Payment Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate tickets with QR codes\nconst paymentData = $input.first().json;\nconst tickets = [];\n\nfor (let i = 0; i < paymentData.totalQuantity; i++) {\n  const ticketId = `TKT-${paymentData.bookingReference}-${(i + 1).toString().padStart(3, '0')}`;\n  \n  // Create QR code data\n  const qrData = {\n    ticketId,\n    bookingRef: paymentData.bookingReference,\n    event: paymentData.eventName,\n    date: paymentData.eventDate,\n    time: paymentData.eventTime,\n    venue: paymentData.venue,\n    validatedAt: null,\n    valid: true\n  };\n  \n  // Generate QR code URL (using public QR API)\n  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(JSON.stringify(qrData))}`;\n  \n  tickets.push({\n    ticketId,\n    qrData,\n    qrCodeUrl,\n    qrCodeDataUrl: null // Will be generated in email node\n  });\n}\n\nreturn [{\n  json: {\n    ...paymentData,\n    tickets,\n    ticketCount: tickets.length\n  }\n}];"
+      },
+      "id": "code2",
+      "name": "Generate Tickets & QR Codes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "tickets@locanoche.com",
+        "toEmail": "={{ $json.customerEmail }}",
+        "subject": "=Your Oktoberfest Tickets - {{ $json.eventName }} - Booking {{ $json.bookingReference }}",
+        "text": "=\"Thank you for your purchase! Your tickets for {{ $json.eventName }} are attached.\\n\\nEvent Details:\\n- Date: {{ $json.eventDate }}\\n- Time: {{ $json.eventTime }}\\n- Venue: {{ $json.venue }}\\n- Booking Reference: {{ $json.bookingReference }}\\n- Number of Tickets: {{ $json.ticketCount }}\\n\\nPlease present the QR codes at the venue entrance.\"",
+        "html": "=\"<!DOCTYPE html>\\n<html>\\n<head>\\n  <style>\\n    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; }\\n    .header { background: linear-gradient(135deg, #ff0000, #ffcc00); color: white; padding: 20px; text-align: center; }\\n    .content { padding: 20px; }\\n    .ticket { border: 2px dashed #ccc; padding: 20px; margin: 20px 0; text-align: center; }\\n    .qr-code { margin: 20px 0; }\\n    .footer { background: #f0f0f0; padding: 20px; text-align: center; font-size: 12px; }\\n  </style>\\n</head>\\n<body>\\n  <div class='header'>\\n    <h1>LOCA NOCHE</h1>\\n    <h2>Your Oktoberfest Tickets</h2>\\n  </div>\\n  <div class='content'>\\n    <p>Dear {{ $json.customerName }},</p>\\n    <p>Thank you for your purchase! Your tickets for <strong>{{ $json.eventName }}</strong> have been confirmed.</p>\\n    <h3>Event Details:</h3>\\n    <ul>\\n      <li>Booking Reference: <strong>{{ $json.bookingReference }}</strong></li>\\n      <li>Event: {{ $json.eventName }}</li>\\n      <li>Date: {{ $json.eventDate }}</li>\\n      <li>Time: {{ $json.eventTime }}</li>\\n      <li>Venue: {{ $json.venue }}</li>\\n      <li>Number of Tickets: {{ $json.ticketCount }}</li>\\n      <li>Total Amount: €{{ $json.totalAmount }}</li>\\n    </ul>\\n    \" + $json.tickets.map((ticket, index) => `\\n    <div class='ticket'>\\n      <h3>Ticket ${index + 1} - ${ticket.ticketId}</h3>\\n      <div class='qr-code'>\\n        <img src='${ticket.qrCodeUrl}' alt='QR Code' width='250' height='250'>\\n      </div>\\n      <p>Present this QR code at the venue entrance</p>\\n    </div>\\n    `).join('') + \"\\n    <p><strong>Important:</strong></p>\\n    <ul>\\n      <li>Please arrive at least 15 minutes before the event</li>\\n      <li>Each QR code can only be used once</li>\\n      <li>Valid ID may be required at entrance</li>\\n    </ul>\\n  </div>\\n  <div class='footer'>\\n    <p>© 2024 Loca Noche Entertainment. All rights reserved.</p>\\n    <p>If you have any questions, contact us at support@locanoche.com</p>\\n  </div>\\n</body>\\n</html>\"",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "email1",
+      "name": "Send Ticket Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://locanoche.com/api/bookings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"orderId\": \"{{ $node['Process Payment Data'].json.orderId }}\",\n  \"eventId\": \"{{ $node['Process Payment Data'].json.eventId }}\",\n  \"bookingReference\": \"{{ $node['Process Payment Data'].json.bookingReference }}\",\n  \"customerEmail\": \"{{ $node['Process Payment Data'].json.customerEmail }}\",\n  \"customerName\": \"{{ $node['Process Payment Data'].json.customerName }}\",\n  \"totalAmount\": {{ $node['Process Payment Data'].json.totalAmount }},\n  \"totalQuantity\": {{ $node['Process Payment Data'].json.totalQuantity }},\n  \"tickets\": {{ JSON.stringify($node['Generate Tickets & QR Codes'].json.tickets) }},\n  \"status\": \"CONFIRMED\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "http1",
+      "name": "Save Booking to Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Payment processed successfully\",\n  \"bookingReference\": \"{{ $node['Process Payment Data'].json.bookingReference }}\",\n  \"ticketsSent\": true,\n  \"ticketCount\": {{ $node['Generate Tickets & QR Codes'].json.ticketCount }},\n  \"customerEmail\": \"{{ $node['Process Payment Data'].json.customerEmail }}\",\n  \"qrCodes\": {{ JSON.stringify($node['Generate Tickets & QR Codes'].json.tickets) }}\n}"
+      },
+      "id": "respond1",
+      "name": "Return Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    }
+  ],
+  "connections": {
+    "Payment Success Webhook": {
+      "main": [[{"node": "Process Payment Data", "type": "main", "index": 0}]]
+    },
+    "Process Payment Data": {
+      "main": [[{"node": "Generate Tickets & QR Codes", "type": "main", "index": 0}]]
+    },
+    "Generate Tickets & QR Codes": {
+      "main": [[
+        {"node": "Send Ticket Email", "type": "main", "index": 0},
+        {"node": "Save Booking to Database", "type": "main", "index": 0}
+      ]]
+    },
+    "Send Ticket Email": {
+      "main": [[{"node": "Return Success Response", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

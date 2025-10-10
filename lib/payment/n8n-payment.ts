@@ -41,7 +41,9 @@ export class N8NPaymentService {
 
     console.log('N8N Config loaded:', {
       event1Url: this.config.event1WebhookUrl ? 'SET' : 'MISSING',
-      event2Url: this.config.event2WebhookUrl ? 'SET' : 'MISSING'
+      event2Url: this.config.event2WebhookUrl ? 'SET' : 'MISSING',
+      event1ActualUrl: this.config.event1WebhookUrl,
+      event2ActualUrl: this.config.event2WebhookUrl
     })
   }
 

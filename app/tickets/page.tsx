@@ -49,6 +49,40 @@ export default function TicketsPage() {
     fetchEvents()
   }, [])
 
+  // Static fallback events in case API fails
+  const upcomingEvents = [
+    {
+      id: "1",
+      title: "Lakatamia Hofbräu Oktoberfest - Minus One",
+      date: "October 11, 2024",
+      time: "17:00 - 00:00",
+      venue: "River Park Lakatamia",
+      available: 300,
+      description: "Lakatamia Hofbräu in München Oktoberfest presents Minus One - An authentic German beer festival experience with live music",
+      image: "https://i.ibb.co/DDXtKYmG/NICOSIA-Instagram-Post-45-7.png",
+      category: "Oktoberfest",
+      ticketTypes: [
+        { id: "adult-1", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
+        { id: "child-1", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
+      ]
+    },
+    {
+      id: "2",
+      title: "Lakatamia Hofbräu Oktoberfest - Giannis Margaris",
+      date: "October 12, 2024",
+      time: "17:00 - 00:00",
+      venue: "River Park Lakatamia",
+      available: 300,
+      description: "Lakatamia Hofbräu in München Oktoberfest presents Giannis Margaris - Traditional Bavarian celebration with live entertainment",
+      image: "https://i.ibb.co/S42KhYHF/NICOSIA-Instagram-Post-45-6.png",
+      category: "Oktoberfest",
+      ticketTypes: [
+        { id: "adult-2", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
+        { id: "child-2", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
+      ]
+    },
+  ]
+
   const fetchEvents = async () => {
     try {
       const response = await fetch('/api/events?category=FESTIVAL&status=PUBLISHED')
@@ -93,7 +127,7 @@ export default function TicketsPage() {
 
   const handleTicketSelection = async (eventId: string, ticketSelections: any[], total: number) => {
     // Store the selection and show customer form
-    const event = upcomingEvents.find(e => e.id === eventId)
+    const event = displayEvents.find(e => e.id === eventId)
     setSelectedPurchase({
       eventId,
       eventTitle: event?.title || 'Event',
@@ -155,40 +189,8 @@ export default function TicketsPage() {
     setSelectedPurchase(null)
   }
 
-  
   // Use fetched events or fallback to static data
-  const upcomingEvents = events.length > 0 ? events : [
-    {
-      id: "1",
-      title: "Lakatamia Hofbräu Oktoberfest - Minus One",
-      date: "October 11, 2024",
-      time: "17:00 - 00:00",
-      venue: "River Park Lakatamia",
-      available: 300,
-      description: "Lakatamia Hofbräu in München Oktoberfest presents Minus One - An authentic German beer festival experience with live music",
-      image: "https://i.ibb.co/DDXtKYmG/NICOSIA-Instagram-Post-45-7.png",
-      category: "Oktoberfest",
-      ticketTypes: [
-        { id: "adult-1", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
-        { id: "child-1", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
-      ]
-    },
-    {
-      id: "2",
-      title: "Lakatamia Hofbräu Oktoberfest - Giannis Margaris",
-      date: "October 12, 2024",
-      time: "17:00 - 00:00",
-      venue: "River Park Lakatamia",
-      available: 300,
-      description: "Lakatamia Hofbräu in München Oktoberfest presents Giannis Margaris - Traditional Bavarian celebration with live entertainment",
-      image: "https://i.ibb.co/S42KhYHF/NICOSIA-Instagram-Post-45-6.png",
-      category: "Oktoberfest",
-      ticketTypes: [
-        { id: "adult-2", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
-        { id: "child-2", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
-      ]
-    },
-  ]
+  const displayEvents = events.length > 0 ? events : upcomingEvents
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -236,7 +238,7 @@ export default function TicketsPage() {
           {/* Events Grid */}
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 justify-center">
-              {upcomingEvents.map((event, index) => (
+              {displayEvents.map((event, index) => (
                 <Card
                   key={event.id}
                   className="bg-gray-900/80 border-gray-700 transition-all duration-500 hover:border-red-500 hover:shadow-2xl hover:shadow-red-500/20 hover:scale-[1.02] group overflow-hidden"

@@ -59,117 +59,121 @@ export async function GET(request: NextRequest) {
       category, status, featured, search, page, limit, skip
     })
 
-    try {
-      const [events, total] = await Promise.all([
-        prisma.event.findMany({
-          where,
-          skip,
-          take: limit,
-          include: {
-            venue: true,
-            ticketTypes: {
-              where: { isActive: true },
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                currency: true,
-                quantity: true,
-                sold: true,
-                maxPerOrder: true,
-                description: true,
-              }
-            },
-            _count: {
-              select: { bookings: true, reviews: true },
-            },
-          },
-          orderBy: [
-            { featured: 'desc' },
-            { eventDate: 'asc' },
-          ],
-        }),
-        prisma.event.count({ where }),
-      ])
-
-      console.log(`✅ Found ${events.length} events out of ${total} total`)
-
-      return NextResponse.json({
-        events,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+    // Return hardcoded Oktoberfest events since database is not available
+    const mockEvents = [
+      {
+        id: '1',
+        title: 'Lakatamia Hofbräu Oktoberfest - Minus One',
+        slug: 'oktoberfest-minus-one-2024',
+        description: 'Lakatamia Hofbräu in München Oktoberfest presents Minus One - An authentic German beer festival experience with live music from Cyprus\'s beloved rock band Minus One.',
+        shortDescription: 'Authentic Bavarian festivities with Minus One live performance',
+        category: 'FESTIVAL',
+        status: 'PUBLISHED',
+        eventDate: '2024-10-11T17:00:00Z',
+        startTime: '2024-10-11T17:00:00Z',
+        endTime: '2024-10-12T00:00:00Z',
+        capacity: 300,
+        featured: true,
+        images: ['https://i.ibb.co/DDXtKYmG/NICOSIA-Instagram-Post-45-7.png'],
+        videos: [],
+        tags: ['oktoberfest', 'minus-one', 'bavarian', 'beer-festival', 'live-music'],
+        venue: {
+          id: 'river-park-lakatamia',
+          name: 'River Park Lakatamia',
+          address: 'Lakatamia Avenue',
+          city: 'Lakatamia',
+          country: 'Cyprus',
+          capacity: 500,
         },
-      })
-    } catch (dbError) {
-      console.error('❌ Database query error:', dbError)
-
-      // Return mock data if database is not available
-      const mockEvents = [
-        {
-          id: 'event-1',
-          title: 'Loca Noche Festival',
-          slug: 'loca-noche-festival',
-          description: 'Experience the ultimate nightlife entertainment in Cyprus',
-          shortDescription: 'Cyprus\'s premier entertainment event',
-          category: 'FESTIVAL',
-          status: 'PUBLISHED',
-          eventDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          capacity: 1000,
-          featured: true,
-          images: [],
-          videos: [],
-          tags: ['music', 'nightlife', 'cyprus'],
-          venue: {
-            id: 'venue-1',
-            name: 'Loca Noche Venue',
-            address: 'Nicosia, Cyprus',
-            city: 'Nicosia',
-            country: 'Cyprus',
-            capacity: 1000,
+        ticketTypes: [
+          {
+            id: 'adult-1',
+            name: 'Adult Ticket',
+            price: 10,
+            currency: 'EUR',
+            quantity: 250,
+            sold: 0,
+            maxPerOrder: 20,
+            description: 'General admission - Adult'
           },
-          ticketTypes: [
-            {
-              id: 'adult-1',
-              name: 'Adult Ticket',
-              price: 10,
-              currency: 'EUR',
-              quantity: 500,
-              sold: 0,
-              maxPerOrder: 10,
-              description: 'General admission adult ticket'
-            },
-            {
-              id: 'child-1',
-              name: 'Child Ticket',
-              price: 5,
-              currency: 'EUR',
-              quantity: 100,
-              sold: 0,
-              maxPerOrder: 10,
-              description: 'General admission child ticket'
-            }
-          ],
-          _count: {
-            bookings: 0,
-            reviews: 0,
+          {
+            id: 'child-1',
+            name: 'Child Ticket (Under 12)',
+            price: 5,
+            currency: 'EUR',
+            quantity: 50,
+            sold: 0,
+            maxPerOrder: 20,
+            description: 'General admission - Child'
           }
+        ],
+        _count: {
+          bookings: 0,
+          reviews: 0,
         }
-      ]
-
-      return NextResponse.json({
-        events: mockEvents,
-        pagination: {
-          page,
-          limit,
-          total: mockEvents.length,
-          totalPages: 1,
+      },
+      {
+        id: '2',
+        title: 'Lakatamia Hofbräu Oktoberfest - Giannis Margaris',
+        slug: 'oktoberfest-giannis-margaris-2024',
+        description: 'Lakatamia Hofbräu in München Oktoberfest presents Giannis Margaris - Traditional Bavarian celebration with live entertainment by popular Greek-Cypriot performer Giannis Margaris.',
+        shortDescription: 'Bavarian celebration with Giannis Margaris live performance',
+        category: 'FESTIVAL',
+        status: 'PUBLISHED',
+        eventDate: '2024-10-12T17:00:00Z',
+        startTime: '2024-10-12T17:00:00Z',
+        endTime: '2024-10-13T00:00:00Z',
+        capacity: 300,
+        featured: true,
+        images: ['https://i.ibb.co/S42KhYHF/NICOSIA-Instagram-Post-45-6.png'],
+        videos: [],
+        tags: ['oktoberfest', 'giannis-margaris', 'bavarian', 'beer-festival', 'live-music'],
+        venue: {
+          id: 'river-park-lakatamia',
+          name: 'River Park Lakatamia',
+          address: 'Lakatamia Avenue',
+          city: 'Lakatamia',
+          country: 'Cyprus',
+          capacity: 500,
         },
-        warning: 'Using mock data due to database connectivity issues'
-      })
-    }
+        ticketTypes: [
+          {
+            id: 'adult-2',
+            name: 'Adult Ticket',
+            price: 10,
+            currency: 'EUR',
+            quantity: 250,
+            sold: 0,
+            maxPerOrder: 20,
+            description: 'General admission - Adult'
+          },
+          {
+            id: 'child-2',
+            name: 'Child Ticket (Under 12)',
+            price: 5,
+            currency: 'EUR',
+            quantity: 50,
+            sold: 0,
+            maxPerOrder: 20,
+            description: 'General admission - Child'
+          }
+        ],
+        _count: {
+          bookings: 0,
+          reviews: 0,
+        }
+      }
+    ]
+
+    return NextResponse.json({
+      events: mockEvents,
+      pagination: {
+        page,
+        limit,
+        total: mockEvents.length,
+        totalPages: 1,
+      },
+    })
   } catch (error) {
     console.error('❌ Unexpected error in events API:', error)
     return NextResponse.json(
