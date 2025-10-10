@@ -95,7 +95,7 @@ export class N8NPaymentService {
     }
   }
 
-  async createPaymentOrderWithAmount(paymentRequest: PaymentRequestWithAmount): Promise<PaymentResponse> {
+  async createPaymentOrderWithAmount(paymentRequest: PaymentRequestWithAmount & { customerData?: any }): Promise<PaymentResponse> {
     try {
       // Determine which webhook URL to use based on event ID
       const webhookUrl = paymentRequest.eventId === '1'
@@ -119,7 +119,8 @@ export class N8NPaymentService {
           totalAmount: paymentRequest.totalAmount,
           totalQuantity: paymentRequest.totalQuantity,
           description: paymentRequest.description || 'Mixed Oktoberfest Ticket Purchase',
-          preCalculated: true // Flag to indicate amount is pre-calculated
+          preCalculated: true, // Flag to indicate amount is pre-calculated
+          customerData: paymentRequest.customerData // Include customer data
         })
       })
 

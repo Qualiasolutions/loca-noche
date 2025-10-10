@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
         eventId,
         totalAmount: total,
         totalQuantity,
-        description: `${n8nPaymentService.getEventName(eventId)} - ${detailedDescription}`
+        description: `${n8nPaymentService.getEventName(eventId)} - ${detailedDescription}`,
+        customerData: body.customerData // Pass customer data to N8N
       })
 
       if (!paymentResult.success) {
