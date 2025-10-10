@@ -129,8 +129,31 @@ export class N8NPaymentService {
         throw new Error(`N8N webhook request failed: ${response.status} - ${errorText}`)
       }
 
-      const result: PaymentResponse = await response.json()
+      const result = await response.json()
 
+      // Handle N8N response that only contains orderCode (temporary workaround)
+      // N8N currently returns: {"orderCode": 3770486857263998}
+      // We need to construct the full response
+      if (result.orderCode && !result.success) {
+        console.log('N8N returned minimal response with orderCode:', result.orderCode)
+        console.log('Constructing full payment response...')
+
+        const fullResponse: PaymentResponse = {
+          success: true,
+          paymentUrl: `https://www.vivapayments.com/web/checkout?ref=${result.orderCode}`,
+          orderCode: result.orderCode,
+          amount: paymentRequest.totalAmount,
+          quantity: paymentRequest.totalQuantity,
+          event: this.getEventName(paymentRequest.eventId),
+          eventId: paymentRequest.eventId,
+          description: paymentRequest.description || 'Mixed Oktoberfest Ticket Purchase',
+        }
+
+        console.log('Constructed payment response:', fullResponse)
+        return fullResponse
+      }
+
+      // If N8N returns a full response in the future, use it directly
       if (!result.success) {
         throw new Error(`Payment creation failed: ${result.error || 'Unknown error'}`)
       }
