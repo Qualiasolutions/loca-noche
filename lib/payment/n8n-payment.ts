@@ -31,28 +31,21 @@ interface PaymentResponse {
 }
 
 export class N8NPaymentService {
-  private config: N8NPaymentConfig
-
-  constructor() {
-    this.config = {
+  private getConfig(): N8NPaymentConfig {
+    // Get environment variables at runtime, not build time
+    return {
       event1WebhookUrl: process.env.N8N_EVENT1_WEBHOOK_URL || '',
       event2WebhookUrl: process.env.N8N_EVENT2_WEBHOOK_URL || '',
     }
-
-    console.log('N8N Config loaded:', {
-      event1Url: this.config.event1WebhookUrl ? 'SET' : 'MISSING',
-      event2Url: this.config.event2WebhookUrl ? 'SET' : 'MISSING',
-      event1ActualUrl: this.config.event1WebhookUrl,
-      event2ActualUrl: this.config.event2WebhookUrl
-    })
   }
 
   async createPaymentOrder(paymentRequest: PaymentRequest): Promise<PaymentResponse> {
     try {
+      const config = this.getConfig()
       // Determine which webhook URL to use based on event ID
       const webhookUrl = paymentRequest.eventId === '1'
-        ? this.config.event1WebhookUrl
-        : this.config.event2WebhookUrl
+        ? config.event1WebhookUrl
+        : config.event2WebhookUrl
 
       if (!webhookUrl) {
         throw new Error(`N8N webhook URL not configured for event ${paymentRequest.eventId}`)
@@ -97,10 +90,11 @@ export class N8NPaymentService {
 
   async createPaymentOrderWithAmount(paymentRequest: PaymentRequestWithAmount & { customerData?: any }): Promise<PaymentResponse> {
     try {
+      const config = this.getConfig()
       // Determine which webhook URL to use based on event ID
       const webhookUrl = paymentRequest.eventId === '1'
-        ? this.config.event1WebhookUrl
-        : this.config.event2WebhookUrl
+        ? config.event1WebhookUrl
+        : config.event2WebhookUrl
 
       if (!webhookUrl) {
         throw new Error(`N8N webhook URL not configured for event ${paymentRequest.eventId}`)
