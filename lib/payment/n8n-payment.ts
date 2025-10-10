@@ -33,9 +33,10 @@ interface PaymentResponse {
 export class N8NPaymentService {
   private getConfig(): N8NPaymentConfig {
     // Get environment variables at runtime, not build time
+    // Add fallback URLs if env vars are not available
     return {
-      event1WebhookUrl: process.env.N8N_EVENT1_WEBHOOK_URL || '',
-      event2WebhookUrl: process.env.N8N_EVENT2_WEBHOOK_URL || '',
+      event1WebhookUrl: process.env.N8N_EVENT1_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-event1-payment-v2',
+      event2WebhookUrl: process.env.N8N_EVENT2_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-event2-payment-v2',
     }
   }
 
