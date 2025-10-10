@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
         .join(', ')
 
       // Create payment order via N8N webhook with calculated total
+      console.log('🎫 Creating payment:', { eventId, total, totalQuantity, customerData: body.customerData })
+      
       const paymentResult = await n8nPaymentService.createPaymentOrderWithAmount({
         eventId,
         totalAmount: total,
@@ -40,27 +42,33 @@ export async function POST(request: NextRequest) {
         customerData: body.customerData // Pass customer data to N8N
       })
 
-      if (!paymentResult.success) {
+      console.log('💳 Payment result:', paymentResult)
+
+      if (!paymentResult || !paymentResult.success) {
+        console.error('❌ Payment failed:', paymentResult?.error)
         return NextResponse.json(
-          { error: paymentResult.error || 'Payment creation failed' },
+          { error: paymentResult?.error || 'Payment creation failed' },
           { status: 500 }
         )
       }
 
-      return NextResponse.json({
+      const response = {
         success: true,
-        paymentUrl: paymentResult.paymentUrl,
-        orderCode: paymentResult.orderCode,
-        amount: paymentResult.amount,
+        paymentUrl: paymentResult.paymentUrl || '',
+        orderCode: paymentResult.orderCode || '',
+        amount: paymentResult.amount || total,
         quantity: totalQuantity,
         ticketSelections,
-        event: paymentResult.event,
-        eventId: paymentResult.eventId,
-        description: paymentResult.description,
+        event: paymentResult.event || n8nPaymentService.getEventName(eventId),
+        eventId: paymentResult.eventId || eventId,
+        description: paymentResult.description || detailedDescription,
         total,
         eventName: n8nPaymentService.getEventName(eventId),
         paymentCode: n8nPaymentService.getPaymentCode(eventId)
-      })
+      }
+
+      console.log('✅ Sending response:', response)
+      return NextResponse.json(response)
     } else {
       // Legacy single ticket format (backward compatibility)
       const { eventId, quantity, ticketType, description } = body
@@ -111,9 +119,14 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error('N8N payment API error:', error)
+    console.error('❌ N8N payment API error:', error)
+    console.error('Error details:', error instanceof Error ? error.message : String(error))
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     )
   }

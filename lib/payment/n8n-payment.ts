@@ -1,3 +1,5 @@
+import { vivaPaymentService } from './viva-payment'
+
 interface N8NPaymentConfig {
   event1WebhookUrl: string
   event2WebhookUrl: string
@@ -38,6 +40,71 @@ export class N8NPaymentService {
       event1WebhookUrl: process.env.N8N_EVENT1_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-noche-event1-payment',
       event2WebhookUrl: process.env.N8N_EVENT2_WEBHOOK_URL || 'https://tasos8.app.n8n.cloud/webhook/loca-noche-event2-payment',
     }
+  }
+
+  // Direct Viva Payments integration (bypassing N8N for payment creation)
+  private async getVivaAccessToken(): Promise<string> {
+    const clientId = process.env.VIVA_CLIENT_ID || 'e9qc8r8d3jny5fznul8cezwsascfo2l3aqq2c6f105u47.apps.vivapayments.com'
+    const clientSecret = process.env.VIVA_CLIENT_SECRET || 'cEv6S51r7hF1F96tyu0kuUY081f61E'
+    
+    console.log('🔑 Getting Viva access token...')
+    
+    const response = await fetch('https://accounts.vivapayments.com/connect/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Viva auth failed:', response.status, errorText)
+      throw new Error(`Failed to get Viva access token: ${response.status} - ${errorText}`)
+    }
+
+    const data = await response.json()
+    console.log('✅ Got Viva access token')
+    return data.access_token
+  }
+
+  private async createVivaPaymentDirect(
+    accessToken: string,
+    amount: number,
+    quantity: number,
+    sourceCode: string,
+    eventName: string,
+    eventId: string,
+    customerData?: any
+  ): Promise<any> {
+    const orderPayload = {
+      amount: Math.round(amount * 100), // Convert to cents
+      sourceCode: sourceCode,
+      customerTrns: eventName,
+      paymentTimeout: 300,
+      merchantTrns: `LocaNoche-Event${eventId}-${Date.now()}-Q${quantity}`,
+    }
+    
+    console.log('💳 Creating Viva order:', orderPayload)
+    
+    const response = await fetch('https://api.vivapayments.com/checkout/v2/orders', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(orderPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Viva order creation failed:', response.status, errorText)
+      throw new Error(`Viva API error: ${response.status} - ${errorText}`)
+    }
+
+    const result = await response.json()
+    console.log('✅ Viva order created:', result)
+    return result
   }
 
   async createPaymentOrder(paymentRequest: PaymentRequest): Promise<PaymentResponse> {
@@ -91,71 +158,68 @@ export class N8NPaymentService {
 
   async createPaymentOrderWithAmount(paymentRequest: PaymentRequestWithAmount & { customerData?: any }): Promise<PaymentResponse> {
     try {
-      const config = this.getConfig()
-      // Determine which webhook URL to use based on event ID
-      const webhookUrl = paymentRequest.eventId === '1'
-        ? config.event1WebhookUrl
-        : config.event2WebhookUrl
+      console.log(`🎫 Creating payment for event ${paymentRequest.eventId}`)
+      
+      const eventName = this.getEventName(paymentRequest.eventId)
+      const customerData = paymentRequest.customerData || {}
 
-      if (!webhookUrl) {
-        throw new Error(`N8N webhook URL not configured for event ${paymentRequest.eventId}`)
-      }
-
-      console.log(`Using N8N webhook URL: ${webhookUrl} for event ${paymentRequest.eventId}`)
-
-      // Make request to N8N webhook with pre-calculated amount
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          totalAmount: paymentRequest.totalAmount,
-          totalQuantity: paymentRequest.totalQuantity,
-          description: paymentRequest.description || 'Mixed Oktoberfest Ticket Purchase',
-          preCalculated: true, // Flag to indicate amount is pre-calculated
-          customerData: paymentRequest.customerData // Include customer data
-        })
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`N8N webhook request failed: ${response.status} - ${errorText}`)
-      }
-
-      const result = await response.json()
-
-      // Handle N8N response that only contains orderCode (temporary workaround)
-      // N8N currently returns: {"orderCode": 3770486857263998}
-      // We need to construct the full response
-      if (result.orderCode && !result.success) {
-        console.log('N8N returned minimal response with orderCode:', result.orderCode)
-        console.log('Constructing full payment response...')
-
-        const fullResponse: PaymentResponse = {
+      // CHECK IF TEST/MOCK MODE
+      const isTestMode = process.env.PAYMENT_MODE === 'test' || process.env.PAYMENT_MODE === 'mock'
+      
+      if (isTestMode) {
+        console.log('🧪 TEST MODE: Creating mock payment...')
+        const mockOrderCode = `MOCK-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+        
+        const mockResponse: PaymentResponse = {
           success: true,
-          paymentUrl: `https://www.vivapayments.com/web/checkout?ref=${result.orderCode}`,
-          orderCode: result.orderCode,
+          paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/success?orderId=${mockOrderCode}&eventId=${paymentRequest.eventId}&amount=${paymentRequest.totalAmount}&quantity=${paymentRequest.totalQuantity}&email=${encodeURIComponent(customerData.email || 'test@test.com')}&name=${encodeURIComponent(`${customerData.firstName} ${customerData.lastName}`)}`,
+          orderCode: mockOrderCode,
           amount: paymentRequest.totalAmount,
           quantity: paymentRequest.totalQuantity,
-          event: this.getEventName(paymentRequest.eventId),
+          event: eventName,
           eventId: paymentRequest.eventId,
-          description: paymentRequest.description || 'Mixed Oktoberfest Ticket Purchase',
+          description: paymentRequest.description || eventName,
         }
-
-        console.log('Constructed payment response:', fullResponse)
-        return fullResponse
+        
+        console.log('✅ Mock payment created:', mockResponse)
+        return mockResponse
       }
 
-      // If N8N returns a full response in the future, use it directly
-      if (!result.success) {
-        throw new Error(`Payment creation failed: ${result.error || 'Unknown error'}`)
+      // REAL VIVA PAYMENT
+      console.log('💳 Using Viva Payment Service...')
+      
+      // Set the correct source code for this event before creating payment
+      const sourceCode = this.getPaymentCode(paymentRequest.eventId)
+      process.env.VIVA_SOURCE_CODE = sourceCode
+
+      const paymentOrder = await vivaPaymentService.createPaymentOrder({
+        amount: paymentRequest.totalAmount,
+        bookingReference: `LN-${paymentRequest.eventId}-${Date.now()}`,
+        customerEmail: customerData.email || 'customer@example.com',
+        customerName: `${customerData.firstName || ''} ${customerData.lastName || ''}`.trim() || 'Customer',
+        customerPhone: customerData.phone,
+        description: paymentRequest.description || eventName,
+      })
+      
+      console.log('✅ Created Viva payment order:', paymentOrder.orderCode)
+
+      const paymentUrl = vivaPaymentService.getPaymentUrl(paymentOrder.orderCode)
+
+      const fullResponse: PaymentResponse = {
+        success: true,
+        paymentUrl: paymentUrl,
+        orderCode: paymentOrder.orderCode.toString(),
+        amount: paymentRequest.totalAmount,
+        quantity: paymentRequest.totalQuantity,
+        event: eventName,
+        eventId: paymentRequest.eventId,
+        description: paymentRequest.description || eventName,
       }
 
-      return result
+      console.log('✅ Payment response ready:', fullResponse)
+      return fullResponse
     } catch (error) {
-      console.error('N8N payment creation error:', error)
+      console.error('❌ Payment creation error:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Payment creation failed'
