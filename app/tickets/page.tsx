@@ -151,6 +151,7 @@ export default function TicketsPage() {
           eventId: selectedPurchase.eventId,
           ticketSelections: selectedPurchase.ticketSelections,
           total: selectedPurchase.total,
+          preCalculated: true,
           description: `${selectedPurchase.eventTitle} - Total: €${selectedPurchase.total}`,
           customerData
         })
