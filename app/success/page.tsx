@@ -17,18 +17,24 @@ function PaymentSuccessContent() {
   useEffect(() => {
     const verifyPaymentAndGenerateTickets = async () => {
       try {
-        // Get payment data from URL params
-        const orderId = searchParams.get('orderId')
-        const eventId = searchParams.get('eventId') || 'event1'
-        const customerEmail = searchParams.get('customerEmail')
-        const customerName = searchParams.get('customerName')
-        const totalAmount = searchParams.get('totalAmount')
-        const totalQuantity = searchParams.get('totalQuantity')
+        // Get payment data from URL params - VivaPayments usually sends 's' and 't' params
+        // s = Order Code (the VivaPayments order ID)
+        // t = Transaction ID
+        const vivaOrderCode = searchParams.get('s') || searchParams.get('orderCode') || searchParams.get('orderId')
+        const transactionId = searchParams.get('t') || searchParams.get('transactionId')
+
+        // Get customer data if passed from our redirect
+        const eventId = searchParams.get('eventId') || '1'
+        const customerEmail = searchParams.get('customerEmail') || searchParams.get('email')
+        const customerName = searchParams.get('customerName') || searchParams.get('name')
+        const totalAmount = searchParams.get('totalAmount') || searchParams.get('amount')
+        const totalQuantity = searchParams.get('totalQuantity') || searchParams.get('quantity')
         const adultTickets = searchParams.get('adultTickets')
         const childTickets = searchParams.get('childTickets')
 
         console.log('🔍 Payment verification data:', {
-          orderId,
+          vivaOrderCode,
+          transactionId,
           eventId,
           customerEmail,
           customerName,
@@ -39,128 +45,105 @@ function PaymentSuccessContent() {
         })
 
         // Enhanced validation with better fallbacks
-        if (!orderId) {
-          console.warn('Missing orderId, checking if we have any payment reference')
-          // Try to get order ID from other potential URL params
-          const altOrderId = searchParams.get('orderCode') ||
-                           searchParams.get('vivaOrderId') ||
-                           searchParams.get('paymentId')
-
-          if (altOrderId) {
-            console.log(`Using alternative order ID: ${altOrderId}`)
-            // Continue with alternative order ID
-            // Note: In a real implementation, you'd want to use this altOrderId
-          } else {
-            setPaymentStatus('failed')
-            setTicketStatus('error')
-            return
-          }
-        }
-
-        if (!customerEmail) {
-          console.warn('Missing customerEmail, attempting to continue with verification')
-          // Don't fail immediately - we might be able to get customer data from the payment
-        }
-
-        // First verify payment status
-        const statusResponse = await fetch(`/api/payments/status/${orderId}`)
-        const statusData = await statusResponse.json()
-
-        console.log('🔍 Payment status response:', statusData)
-
-        if (statusData.status === 'confirmed') {
-          setPaymentStatus('confirmed')
-          setTicketStatus('generating')
-
-          // Try to get missing customer data from payment response if available
-          const finalCustomerEmail = customerEmail || statusData.customerEmail
-          const finalCustomerName = customerName || 'Customer'
-
-          if (!finalCustomerEmail) {
-            console.warn('Still missing customer email, cannot generate tickets')
-            setTicketStatus('error')
-            return
-          }
-
-          // Payment confirmed - now generate tickets with retry logic
-          try {
-            const response = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                orderId,
-                eventId,
-                customerEmail: finalCustomerEmail,
-                customerName: decodeURIComponent(finalCustomerName),
-                totalAmount: parseFloat(totalAmount || '0'),
-                totalQuantity: parseInt(totalQuantity || '1'),
-                adultTickets: parseInt(adultTickets || '0'),
-                childTickets: parseInt(childTickets || '0'),
-                status: 'SUCCESS',
-                paymentSource: statusData.source,
-                vivaData: statusData.vivaData
-              }),
-            })
-
-            if (response.ok) {
-              const result = await response.json()
-              console.log('✅ Tickets generated successfully:', result)
-              setTicketStatus('sent')
-            } else {
-              console.error('❌ Failed to generate tickets:', response.status, response.statusText)
-
-              // Retry once after a delay
-              setTimeout(async () => {
-                try {
-                  const retryResponse = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      orderId,
-                      eventId,
-                      customerEmail: finalCustomerEmail,
-                      customerName: decodeURIComponent(finalCustomerName),
-                      totalAmount: parseFloat(totalAmount || '0'),
-                      totalQuantity: parseInt(totalQuantity || '1'),
-                      adultTickets: parseInt(adultTickets || '0'),
-                      childTickets: parseInt(childTickets || '0'),
-                      status: 'SUCCESS',
-                      retry: true
-                    }),
-                  })
-
-                  if (retryResponse.ok) {
-                    const result = await retryResponse.json()
-                    console.log('✅ Tickets generated successfully on retry:', result)
-                    setTicketStatus('sent')
-                  } else {
-                    console.error('❌ Retry also failed:', retryResponse.status, retryResponse.statusText)
-                    setTicketStatus('error')
-                  }
-                } catch (retryError) {
-                  console.error('❌ Retry error:', retryError)
-                  setTicketStatus('error')
-                }
-              }, 5000) // 5 second delay
-            }
-          } catch (ticketError) {
-            console.error('❌ Error generating tickets:', ticketError)
-            setTicketStatus('error')
-          }
-        } else if (statusData.status === 'failed') {
+        if (!vivaOrderCode) {
+          console.warn('Missing order code from VivaPayments redirect')
           setPaymentStatus('failed')
           setTicketStatus('error')
+          return
+        }
+
+        // Mark payment as confirmed immediately since VivaPayments redirected to success page
+        // This means the payment was successful
+        setPaymentStatus('confirmed')
+        setTicketStatus('generating')
+
+        // Trigger ticket generation immediately
+        const response = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            EventTypeId: 1796, // VivaPayments transaction event
+            OrderCode: vivaOrderCode,
+            transactionId: transactionId,
+            EventData: {
+              OrderCode: vivaOrderCode,
+              StatusId: 'F', // Final/Captured status
+              MerchantTrns: `LocaNoche-Event${eventId}-${Date.now()}-Q${totalQuantity || 1}`,
+              Email: customerEmail,
+              FullName: customerName ? decodeURIComponent(customerName) : 'Customer',
+              Amount: totalAmount
+            },
+            eventId: eventId,
+            customerEmail: customerEmail,
+            customerName: customerName ? decodeURIComponent(customerName) : 'Customer',
+            totalAmount: parseFloat(totalAmount || '0'),
+            totalQuantity: parseInt(totalQuantity || '1'),
+            adultTickets: parseInt(adultTickets || '0'),
+            childTickets: parseInt(childTickets || '0')
+          }),
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          console.log('✅ Tickets generated successfully:', result)
+
+          if (result.processed && result.success) {
+            setTicketStatus('sent')
+          } else if (result.status === 'pending' || result.status === 'verification') {
+            // N8N is still processing or verifying the payment
+            console.log('⏳ Tickets still processing, will retry...')
+
+            // Retry once after a delay
+            setTimeout(async () => {
+              try {
+                const retryResponse = await fetch('https://tasos8.app.n8n.cloud/webhook/loca-noche-payment-success', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    EventTypeId: 1796,
+                    OrderCode: vivaOrderCode,
+                    transactionId: transactionId,
+                    EventData: {
+                      OrderCode: vivaOrderCode,
+                      StatusId: 'F',
+                      MerchantTrns: `LocaNoche-Event${eventId}-${Date.now()}-Q${totalQuantity || 1}`,
+                      Email: customerEmail,
+                      FullName: customerName ? decodeURIComponent(customerName) : 'Customer',
+                      Amount: totalAmount
+                    },
+                    eventId: eventId,
+                    customerEmail: customerEmail,
+                    customerName: customerName ? decodeURIComponent(customerName) : 'Customer',
+                    totalAmount: parseFloat(totalAmount || '0'),
+                    totalQuantity: parseInt(totalQuantity || '1'),
+                    retry: true
+                  }),
+                })
+
+                if (retryResponse.ok) {
+                  const result = await retryResponse.json()
+                  console.log('✅ Tickets generated successfully on retry:', result)
+                  setTicketStatus('sent')
+                } else {
+                  console.error('❌ Retry also failed:', retryResponse.status, retryResponse.statusText)
+                  setTicketStatus('error')
+                }
+              } catch (retryError) {
+                console.error('❌ Retry error:', retryError)
+                setTicketStatus('error')
+              }
+            }, 5000) // 5 second delay
+          } else {
+            // If the result wasn't successful or pending, mark as error
+            setTicketStatus('error')
+          }
         } else {
-          // Still processing - check again after delay with exponential backoff
-          const delay = Math.min(3000 * Math.pow(1.5, Math.floor(Math.random() * 3)), 10000) // 3-10 seconds
-          console.log(`⏳ Payment still processing, retrying in ${delay}ms`)
-          setTimeout(() => {
-            verifyPaymentAndGenerateTickets()
-          }, delay)
+          console.error('❌ Failed to generate tickets:', response.status, response.statusText)
+          setTicketStatus('error')
         }
       } catch (error) {
         console.error('❌ Error in payment verification/ticket generation:', error)

@@ -114,15 +114,80 @@ test.describe('Payment Integration', () => {
 
     await page.goto('/events');
     await page.click('[data-testid="event-card"]:first-child');
-    
+
     // Complete booking form
     await page.selectOption('[data-testid="quantity-select"]', '1');
     await page.fill('[data-testid="customer-name"]', 'Test Customer');
     await page.fill('[data-testid="customer-email"]', 'test@example.com');
     await page.click('[data-testid="proceed-payment"]');
-    
+
     // Should redirect to payment URL
     await page.waitForURL(/vivapayments\.com/);
+  });
+
+  test('should complete N8N payment flow and redirect to VivaPayments', async ({ page }) => {
+    // Test the actual live site
+    await page.goto('https://www.locanoche.com/tickets');
+
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+    console.log('Page loaded, checking for ticket selection...');
+
+    // Look for ticket quantity controls
+    const plusButtons = await page.locator('button:has-text("+")').count();
+
+    if (plusButtons > 0) {
+      // Select adult tickets (first + button)
+      console.log('Found ticket controls, selecting adult ticket...');
+      await page.locator('button:has-text("+")').first().click();
+      await page.waitForTimeout(500);
+
+      // Check if customer form is visible
+      const emailField = page.locator('input[name="email"], input[type="email"]').first();
+      if (await emailField.isVisible()) {
+        console.log('Filling customer information...');
+        await emailField.fill('test@example.com');
+
+        const nameField = page.locator('input[name="name"]').first();
+        if (await nameField.isVisible()) {
+          await nameField.fill('Test Customer');
+        }
+
+        const phoneField = page.locator('input[name="phone"], input[type="tel"]').first();
+        if (await phoneField.isVisible()) {
+          await phoneField.fill('+35799123456');
+        }
+      }
+
+      // Find and click purchase button
+      const purchaseButton = page.locator('button:has-text("Purchase Tickets"), button:has-text("Proceed to Payment")').first();
+
+      if (await purchaseButton.isVisible()) {
+        console.log('Clicking purchase button...');
+        await purchaseButton.click();
+
+        // Wait for redirect or response
+        const result = await Promise.race([
+          page.waitForURL(/vivapayments\.com/, { timeout: 15000 }).then(() => 'success'),
+          page.locator('text=/error|failed/i').first().waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error')
+        ]).catch(() => 'timeout');
+
+        if (result === 'success') {
+          console.log('✅ Successfully redirected to VivaPayments!');
+          const url = page.url();
+          expect(url).toContain('vivapayments.com');
+          console.log('Payment URL:', url);
+        } else if (result === 'error') {
+          const error = await page.locator('text=/error|failed/i').first().textContent();
+          console.error('❌ Payment error:', error);
+          throw new Error(`Payment failed: ${error}`);
+        } else {
+          console.log('Current URL:', page.url());
+          await page.screenshot({ path: 'payment-timeout.png' });
+          throw new Error('Timeout waiting for payment redirect');
+        }
+      }
+    }
   });
 });
 
