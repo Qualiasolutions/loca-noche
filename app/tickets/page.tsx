@@ -54,31 +54,31 @@ export default function TicketsPage() {
     {
       id: "1",
       title: "Lakatamia Hofbräu Oktoberfest - Minus One",
-      date: "October 11, 2024",
-      time: "17:00 - 00:00",
+      date: "October 11, 2025",
+      time: "20:00 - 03:00",
       venue: "River Park Lakatamia",
-      available: 300,
+      available: 500,
       description: "Lakatamia Hofbräu in München Oktoberfest presents Minus One - An authentic German beer festival experience with live music",
       image: "https://i.ibb.co/DDXtKYmG/NICOSIA-Instagram-Post-45-7.png",
-      category: "Oktoberfest",
+      category: "FESTIVAL",
       ticketTypes: [
-        { id: "adult-1", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
-        { id: "child-1", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
+        { id: "adult-1", name: "Adult Ticket", price: 10, available: 500, description: "General admission" },
+        { id: "child-1", name: "Child Ticket (Under 12)", price: 5, available: 500, description: "General admission for children under 12" }
       ]
     },
     {
       id: "2",
       title: "Lakatamia Hofbräu Oktoberfest - Giannis Margaris",
-      date: "October 12, 2024",
-      time: "17:00 - 00:00",
+      date: "October 12, 2025",
+      time: "20:00 - 03:00",
       venue: "River Park Lakatamia",
-      available: 300,
-      description: "Lakatamia Hofbräu in München Oktoberfest presents Giannis Margaris - Traditional Bavarian celebration with live entertainment",
+      available: 500,
+      description: "Lakatamia Hofbräu in München Oktoberfest presents Giannis Margaris - Traditional Bavarian celebration with live entertainment by popular Greek-Cypriot performer Giannis Margaris",
       image: "https://i.ibb.co/S42KhYHF/NICOSIA-Instagram-Post-45-6.png",
-      category: "Oktoberfest",
+      category: "FESTIVAL",
       ticketTypes: [
-        { id: "adult-2", name: "Adult Ticket", price: 10, available: 250, description: "General admission" },
-        { id: "child-2", name: "Child Ticket (Under 12)", price: 5, available: 50, description: "General admission" }
+        { id: "adult-2", name: "Adult Ticket", price: 10, available: 500, description: "General admission" },
+        { id: "child-2", name: "Child Ticket (Under 12)", price: 5, available: 500, description: "General admission for children under 12" }
       ]
     },
   ]
@@ -228,7 +228,7 @@ export default function TicketsPage() {
         <main className="container mx-auto px-4 py-4 md:py-8">
           <div className="text-center mb-8 md:mb-16">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 md:mb-6 bg-gradient-to-r from-white via-yellow-200 to-white bg-clip-text text-transparent">
-              OKTOBERFEST 2024
+              OKTOBERFEST 2025
             </h1>
             <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto px-2">
               Experience authentic Bavarian festivities at Lakatamia Hofbräu in München
@@ -287,10 +287,7 @@ export default function TicketsPage() {
                         <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 shrink-0" />
                         <span className="text-sm">{event.venue}</span>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3 text-gray-300">
-                        <Users className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 shrink-0" />
-                        <span className="text-sm">{event.available} tickets available</span>
-                      </div>
+                      {/* Tickets available - hidden to avoid confusion */}
                     </div>
 
                     <Separator className="bg-gray-700" />
