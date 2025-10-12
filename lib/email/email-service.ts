@@ -259,7 +259,7 @@ export class EmailService {
             
             <p>Need help? Contact us:</p>
             <ul>
-              <li>📞 Phone: 99144630</li>
+              <li>📞 Phone: 99107227</li>
               <li>📧 Email: Locanocheuk@hotmail.com</li>
             </ul>
           </div>
