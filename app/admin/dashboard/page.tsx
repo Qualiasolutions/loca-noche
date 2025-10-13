@@ -47,7 +47,7 @@ import {
   Loader2,
   Plus,
   Ticket,
-  ArrowRightRight
+  ArrowRight
 } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -681,7 +681,7 @@ export default function AdminDashboard() {
                       </div>
                       <Button variant="outline" size="sm" onClick={() => setActiveTab('payments')} className="hover:bg-green-50">
                         View All Payments
-                        <ArrowRightRight className="w-4 h-4 ml-2" />
+                        <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
                   </CardHeader>
