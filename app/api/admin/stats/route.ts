@@ -55,14 +55,14 @@ export async function GET(request: NextRequest) {
           createdAt: 'desc'
         },
         include: {
-          event: {
+          Event: {
             select: {
               title: true
             }
           },
-          tickets: {
+          Ticket: {
             include: {
-              ticketType: {
+              TicketType: {
                 select: {
                   name: true
                 }
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest) {
 
     // Format recent bookings
     const recentBookings = recentBookingsData.map(booking => {
-      const ticketCounts = booking.tickets.reduce((acc, ticket) => {
-        acc[ticket.ticketType.name] = (acc[ticket.ticketType.name] || 0) + 1
+      const ticketCounts = booking.Ticket.reduce((acc, ticket) => {
+        acc[ticket.TicketType.name] = (acc[ticket.TicketType.name] || 0) + 1
         return acc
       }, {} as Record<string, number>)
 
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       return {
         id: booking.bookingReference,
         customerName: booking.customerName,
-        eventName: booking.event.title,
+        eventName: booking.Event.title,
         tickets: ticketsString,
         amount: Number(booking.totalAmount),
         status: booking.status,
