@@ -103,6 +103,58 @@ interface N8nStatus {
   }>
 }
 
+interface PaymentAnalytics {
+  summary: {
+    totalRevenue: number
+    successfulPayments: number
+    failedPayments: number
+    pendingPayments: number
+    refundedPayments: number
+    totalTransactions: number
+    averageTransactionValue: number
+    paymentSuccessRate: number
+    conversionRate: number
+  }
+  breakdown: {
+    byStatus: Array<{
+      status: string
+      count: number
+      totalAmount: number
+    }>
+    byMethod: Array<{
+      method: string
+      count: number
+      totalAmount: number
+    }>
+  }
+  recentPayments: Array<{
+    id: string
+    orderCode: string
+    date: string
+    customerName: string
+    customerEmail: string
+    amount: number
+    method: string
+    status: string
+    event: string
+    eventDate: string | null
+    processedAt: string | null
+  }>
+  trends: Array<{
+    date: string
+    totalTransactions: number
+    successfulTransactions: number
+    dailyRevenue: number
+    successRate: number
+  }>
+  metrics: {
+    totalBookings: number
+    bookingToPaymentConversion: number
+    paymentFailureRate: number
+    refundRate: number
+  }
+}
+
 export default function AdminDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -110,9 +162,11 @@ export default function AdminDashboard() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [n8nStatus, setN8nStatus] = useState<N8nStatus | null>(null)
+  const [paymentAnalytics, setPaymentAnalytics] = useState<PaymentAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [paymentTimeframe, setPaymentTimeframe] = useState('all')
 
   useEffect(() => {
     // Check authentication
@@ -126,7 +180,7 @@ export default function AdminDashboard() {
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
-  }, [router])
+  }, [router, paymentTimeframe])
 
   const handleLogout = () => {
     localStorage.removeItem("admin_authenticated")
@@ -136,11 +190,12 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, paymentsRes, customersRes, n8nRes] = await Promise.all([
+      const [statsRes, paymentsRes, customersRes, n8nRes, analyticsRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/admin/payments'),
         fetch('/api/admin/customers'),
-        fetch('/api/admin/n8n-status')
+        fetch('/api/admin/n8n-status'),
+        fetch(`/api/admin/payment-analytics?timeframe=${paymentTimeframe}`)
       ])
 
       if (statsRes.ok) {
@@ -161,6 +216,11 @@ export default function AdminDashboard() {
       if (n8nRes.ok) {
         const n8nData = await n8nRes.json()
         setN8nStatus(n8nData)
+      }
+
+      if (analyticsRes.ok) {
+        const analyticsData = await analyticsRes.json()
+        setPaymentAnalytics(analyticsData)
       }
     } catch (error) {
       console.error('Error fetching admin data:', error)
@@ -359,16 +419,108 @@ export default function AdminDashboard() {
 
               {/* Dashboard Content */}
               <TabsContent value="dashboard" className="mt-6 space-y-6">
+                {/* Enhanced Payment Analytics */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">Payment Analytics</h2>
+                    <div className="flex items-center gap-2">
+                      <Select value={paymentTimeframe} onValueChange={setPaymentTimeframe}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="week">Last 7 Days</SelectItem>
+                          <SelectItem value="month">This Month</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Completed Payments</p>
+                          <p className="text-2xl font-bold text-green-600">
+                            {paymentAnalytics?.summary.successfulPayments || 0}
+                          </p>
+                        </div>
+                        <div className="bg-green-100 rounded-full p-3">
+                          <CreditCard className="h-6 w-6 text-green-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Failed Payments</p>
+                          <p className="text-2xl font-bold text-red-600">
+                            {paymentAnalytics?.summary.failedPayments || 0}
+                          </p>
+                        </div>
+                        <div className="bg-red-100 rounded-full p-3">
+                          <Activity className="h-6 w-6 text-red-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Success Rate</p>
+                          <p className="text-2xl font-bold text-blue-600">
+                            {paymentAnalytics?.summary.paymentSuccessRate.toFixed(1) || 0}%
+                          </p>
+                        </div>
+                        <div className="bg-blue-100 rounded-full p-3">
+                          <TrendingUp className="h-6 w-6 text-blue-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+                          <p className="text-2xl font-bold text-purple-600">
+                            {paymentAnalytics?.metrics.bookingToPaymentConversion.toFixed(1) || 0}%
+                          </p>
+                        </div>
+                        <div className="bg-purple-100 rounded-full p-3">
+                          <Users className="h-6 w-6 text-purple-600" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Real Revenue from Completed Payments */}
+                  <div className="bg-white rounded-lg p-4 border border-green-200 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Actual Revenue (Completed Payments)</p>
+                        <p className="text-3xl font-bold text-green-600">
+                          {formatCurrency(paymentAnalytics?.summary.totalRevenue || 0)}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          From {paymentAnalytics?.summary.successfulPayments || 0} successful transactions
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-600">Average Transaction</p>
+                        <p className="text-xl font-semibold text-gray-900">
+                          {formatCurrency(paymentAnalytics?.summary.averageTransactionValue || 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <StatCard
-                    title="Total Revenue"
-                    value={formatCurrency(stats?.totalRevenue || 0)}
-                    icon={TrendingUp}
-                    trend="up"
-                    color="green"
-                  />
-                  <StatCard
-                    title="Tickets Sold"
+                    title="Total Bookings"
                     value={stats?.totalBookings || 0}
                     icon={Calendar}
                     trend="up"
@@ -382,71 +534,87 @@ export default function AdminDashboard() {
                     color="purple"
                   />
                   <StatCard
-                    title="Payment Success Rate"
-                    value={`${stats?.paymentSuccessRate || 0}%`}
+                    title="Pending Payments"
+                    value={paymentAnalytics?.summary.pendingPayments || 0}
                     icon={Activity}
-                    trend="up"
-                    color="green"
+                    color="yellow"
+                  />
+                  <StatCard
+                    title="Refunded"
+                    value={paymentAnalytics?.summary.refundedPayments || 0}
+                    icon={CreditCard}
+                    color="orange"
                   />
                 </div>
 
                 <Card>
                   <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle>Recent Bookings</CardTitle>
-                      <Button variant="outline" size="sm">
-                        View All
+                      <div>
+                        <CardTitle>Recent Completed Payments 💰</CardTitle>
+                        <CardDescription>
+                          Latest successful payment transactions - REAL paid customers
+                        </CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setActiveTab('payments')}>
+                        View All Payments
                       </Button>
                     </div>
-                    <CardDescription>
-                      Latest ticket purchases and their status
-                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Booking ID</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Event</TableHead>
-                          <TableHead>Tickets</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {stats?.recentBookings.map((booking) => (
-                          <TableRow key={booking.id}>
-                            <TableCell className="font-mono text-sm">{booking.id}</TableCell>
-                            <TableCell>{booking.customerName}</TableCell>
-                            <TableCell>{booking.eventName}</TableCell>
-                            <TableCell>{booking.tickets}</TableCell>
-                            <TableCell className="font-medium">{formatCurrency(booking.amount)}</TableCell>
-                            <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                  <DropdownMenuItem>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View Details
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
+                    {paymentAnalytics?.recentPayments.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">No completed payments found in the selected timeframe.</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          This means no customers have successfully completed payment yet.
+                        </p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Order Code</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Event</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Method</TableHead>
+                            <TableHead>Completed</TableHead>
+                            <TableHead>Status</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {paymentAnalytics?.recentPayments.map((payment) => (
+                            <TableRow key={payment.id} className="bg-green-50">
+                              <TableCell className="font-mono text-sm font-medium">
+                                {payment.orderCode}
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{payment.customerName}</div>
+                                  <div className="text-sm text-gray-500">{payment.customerEmail}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>{payment.event}</TableCell>
+                              <TableCell className="font-bold text-green-600">
+                                {formatCurrency(payment.amount)}
+                              </TableCell>
+                              <TableCell>{payment.method}</TableCell>
+                              <TableCell>
+                                {payment.processedAt
+                                  ? formatDate(payment.processedAt)
+                                  : formatDate(payment.date)
+                                }
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                  ✅ {payment.status}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -496,26 +664,132 @@ export default function AdminDashboard() {
 
               {/* Payments Content */}
               <TabsContent value="payments" className="mt-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Card>
+                {/* Payment Analytics Header */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">Real Payment Analytics 💳</h2>
+                    <div className="flex items-center gap-2">
+                      <Select value={paymentTimeframe} onValueChange={setPaymentTimeframe}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="week">Last 7 Days</SelectItem>
+                          <SelectItem value="month">This Month</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-lg p-4 border border-green-200">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {formatCurrency(paymentAnalytics?.summary.totalRevenue || 0)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          From {paymentAnalytics?.summary.successfulPayments || 0} completed payments
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-blue-200">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600">Success Rate</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {paymentAnalytics?.summary.paymentSuccessRate.toFixed(1) || 0}%
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {paymentAnalytics?.summary.successfulPayments || 0} of {paymentAnalytics?.summary.totalTransactions || 0} successful
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-purple-200">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600">Average Transaction</p>
+                        <p className="text-2xl font-bold text-purple-600">
+                          {formatCurrency(paymentAnalytics?.summary.averageTransactionValue || 0)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Per successful payment
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-orange-200">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+                        <p className="text-2xl font-bold text-orange-600">
+                          {paymentAnalytics?.metrics.bookingToPaymentConversion.toFixed(1) || 0}%
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {paymentAnalytics?.metrics.totalBookings || 0} bookings → {paymentAnalytics?.summary.successfulPayments || 0} payments
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Status Breakdown */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <Card className="border-green-200">
                     <CardHeader>
-                      <CardTitle className="text-lg">{formatCurrency(stats?.totalRevenue || 0)}</CardTitle>
-                      <CardDescription>Total Processed</CardDescription>
-                    </CardHeader>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">{stats?.successfulPayments || 0}</CardTitle>
-                      <CardDescription>Successful Payments</CardDescription>
-                    </CardHeader>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">
-                        {formatCurrency((stats?.totalRevenue || 0) / (stats?.totalBookings || 1))}
+                      <CardTitle className="text-lg text-green-600">
+                        {paymentAnalytics?.summary.successfulPayments || 0}
                       </CardTitle>
-                      <CardDescription>Average Transaction</CardDescription>
+                      <CardDescription>✅ Completed Payments</CardDescription>
                     </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600">
+                        {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'COMPLETED')?.totalAmount || 0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-red-200">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-red-600">
+                        {paymentAnalytics?.summary.failedPayments || 0}
+                      </CardTitle>
+                      <CardDescription>❌ Failed Payments</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600">
+                        {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'FAILED')?.totalAmount || 0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-yellow-200">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-yellow-600">
+                        {paymentAnalytics?.summary.pendingPayments || 0}
+                      </CardTitle>
+                      <CardDescription>⏳ Pending Payments</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600">
+                        {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'PENDING')?.totalAmount || 0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-orange-200">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-orange-600">
+                        {paymentAnalytics?.summary.refundedPayments || 0}
+                      </CardTitle>
+                      <CardDescription>🔄 Refunded</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600">
+                        {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'REFUNDED')?.totalAmount || 0)}
+                      </p>
+                    </CardContent>
                   </Card>
                 </div>
 
