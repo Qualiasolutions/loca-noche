@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,28 +7,258 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User Management
 model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  phone           String?         @unique
+  password        String
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime?
+  isEmailVerified Boolean         @default(false)
+  isPhoneVerified Boolean         @default(false)
+  role            UserRole        @default(CUSTOMER)
+  preferences     Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  bookings        Booking[]
+  notifications   Notification[]
+  paymentMethods  PaymentMethod[]
+  reviews         Review[]
+  wishlist        Wishlist[]
+}
+
+model Venue {
+  id          String         @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  country     String         @default("Cyprus")
+  postalCode  String?
+  latitude    Float?
+  longitude   Float?
+  capacity    Int
+  description String?
+  amenities   Json?
+  images      Json
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  events      Event[]
+  sections    VenueSection[]
+}
+
+model VenueSection {
+  id          String   @id @default(cuid())
+  venueId     String
+  name        String
+  capacity    Int
+  rowCount    Int?
+  seatsPerRow Int?
+  seatMap     Json?
+  tickets     Ticket[]
+  venue       Venue    @relation(fields: [venueId], references: [id])
+}
+
+model Event {
+  id               String        @id @default(cuid())
+  title            String
+  slug             String        @unique
+  description      String
+  shortDescription String?
+  category         EventCategory
+  status           EventStatus   @default(DRAFT)
+  venueId          String
+  eventDate        DateTime
+  doorsOpen        DateTime?
+  startTime        DateTime
+  endTime          DateTime?
+  capacity         Int
+  images           Json
+  videos           Json
+  tags             Json
+  featured         Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  publishedAt      DateTime?
+  bookings         Booking[]
+  venue            Venue         @relation(fields: [venueId], references: [id])
+  reviews          Review[]
+  ticketTypes      TicketType[]
+}
+
+model TicketType {
   id                String    @id @default(cuid())
-  email             String    @unique
-  phone             String?   @unique
-  password          String
-  firstName         String
-  lastName          String
-  dateOfBirth       DateTime?
-  isEmailVerified   Boolean   @default(false)
-  isPhoneVerified   Boolean   @default(false)
-  role              UserRole  @default(CUSTOMER)
-  preferences       Json?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
-  // Relations
-  bookings          Booking[]
-  paymentMethods    PaymentMethod[]
-  wishlist          Wishlist[]
-  notifications     Notification[]
-  reviews           Review[]
+  eventId           String
+  name              String
+  description       String?
+  price             Decimal
+  currency          String    @default("EUR")
+  quantity          Int
+  sold              Int       @default(0)
+  maxPerOrder       Int       @default(10)
+  earlyBirdPrice    Decimal?
+  earlyBirdDeadline DateTime?
+  isActive          Boolean   @default(true)
+  tickets           Ticket[]
+  event             Event     @relation(fields: [eventId], references: [id])
+}
+
+model Ticket {
+  id           String        @id @default(cuid())
+  bookingId    String
+  ticketTypeId String
+  sectionId    String?
+  seatNumber   String?
+  qrCode       String        @unique
+  status       TicketStatus  @default(VALID)
+  validatedAt  DateTime?
+  validatedBy  String?
+  usedAt       DateTime?
+  booking      Booking       @relation(fields: [bookingId], references: [id])
+  section      VenueSection? @relation(fields: [sectionId], references: [id])
+  ticketType   TicketType    @relation(fields: [ticketTypeId], references: [id])
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  userId           String?
+  eventId          String
+  bookingReference String        @unique
+  quantity         Int
+  subtotal         Decimal
+  serviceFee       Decimal
+  tax              Decimal
+  totalAmount      Decimal
+  status           BookingStatus @default(PENDING)
+  paymentId        String?       @unique
+  customerEmail    String
+  customerPhone    String?
+  customerName     String
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  expiresAt        DateTime?
+  completedAt      DateTime?
+  vivaOrderCode    String?       @unique
+  event            Event         @relation(fields: [eventId], references: [id])
+  payment          Payment?      @relation(fields: [paymentId], references: [id])
+  user             User?         @relation(fields: [userId], references: [id])
+  refund           Refund?
+  tickets          Ticket[]
+}
+
+model Payment {
+  id              String            @id @default(cuid())
+  amount          Decimal
+  currency        String            @default("EUR")
+  method          PaymentMethodType
+  status          PaymentStatus     @default(PENDING)
+  gatewayId       String?
+  gatewayResponse Json?
+  processedAt     DateTime?
+  failureReason   String?
+  createdAt       DateTime          @default(now())
+  booking         Booking?
+  refund          Refund?
+}
+
+model PaymentMethod {
+  id           String            @id @default(cuid())
+  userId       String
+  type         PaymentMethodType
+  last4        String?
+  brand        String?
+  expiryMonth  Int?
+  expiryYear   Int?
+  isDefault    Boolean           @default(false)
+  gatewayToken String?
+  user         User              @relation(fields: [userId], references: [id])
+}
+
+model Refund {
+  id          String       @id @default(cuid())
+  bookingId   String       @unique
+  paymentId   String       @unique
+  amount      Decimal
+  reason      String
+  status      RefundStatus @default(PENDING)
+  processedAt DateTime?
+  gatewayId   String?
+  booking     Booking      @relation(fields: [bookingId], references: [id])
+  payment     Payment      @relation(fields: [paymentId], references: [id])
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, eventId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, eventId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+}
+
+model PromoCode {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  description   String?
+  discountType  DiscountType
+  discountValue Decimal
+  minPurchase   Decimal?
+  maxDiscount   Decimal?
+  usageLimit    Int?
+  usedCount     Int          @default(0)
+  validFrom     DateTime
+  validUntil    DateTime
+  eventIds      Json
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+}
+
+model Configuration {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldValues Json?
+  newValues Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 }
 
 enum UserRole {
@@ -39,72 +266,6 @@ enum UserRole {
   ADMIN
   ORGANIZER
   STAFF
-}
-
-// Venue Management
-model Venue {
-  id                String    @id @default(cuid())
-  name              String
-  address           String
-  city              String
-  country           String    @default("Cyprus")
-  postalCode        String?
-  latitude          Float?
-  longitude         Float?
-  capacity          Int
-  description       String?
-  amenities         Json?
-  images            Json
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
-  // Relations
-  events            Event[]
-  sections          VenueSection[]
-}
-
-model VenueSection {
-  id                String    @id @default(cuid())
-  venueId           String
-  name              String
-  capacity          Int
-  rowCount          Int?
-  seatsPerRow       Int?
-  seatMap           Json?
-  
-  // Relations
-  venue             Venue     @relation(fields: [venueId], references: [id])
-  tickets           Ticket[]
-}
-
-// Event Management
-model Event {
-  id                String    @id @default(cuid())
-  title             String
-  slug              String    @unique
-  description       String
-  shortDescription  String?
-  category          EventCategory
-  status            EventStatus @default(DRAFT)
-  venueId           String
-  eventDate         DateTime
-  doorsOpen         DateTime?
-  startTime         DateTime
-  endTime           DateTime?
-  capacity          Int
-  images            Json
-  videos            Json
-  tags              Json
-  featured          Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  publishedAt       DateTime?
-  
-  // Relations
-  venue             Venue     @relation(fields: [venueId], references: [id])
-  ticketTypes       TicketType[]
-  bookings          Booking[]
-  reviews           Review[]
 }
 
 enum EventCategory {
@@ -126,81 +287,12 @@ enum EventStatus {
   COMPLETED
 }
 
-// Ticket Management
-model TicketType {
-  id                String    @id @default(cuid())
-  eventId           String
-  name              String
-  description       String?
-  price             Decimal
-  currency          String    @default("EUR")
-  quantity          Int
-  sold              Int       @default(0)
-  maxPerOrder       Int       @default(10)
-  earlyBirdPrice    Decimal?
-  earlyBirdDeadline DateTime?
-  isActive          Boolean   @default(true)
-  
-  // Relations
-  event             Event     @relation(fields: [eventId], references: [id])
-  tickets           Ticket[]
-}
-
-model Ticket {
-  id                String    @id @default(cuid())
-  bookingId         String
-  ticketTypeId      String
-  sectionId         String?
-  seatNumber        String?
-  qrCode            String    @unique
-  status            TicketStatus @default(VALID)
-  usedAt            DateTime?
-  validatedAt       DateTime?
-  validatedBy       String?
-
-  // Relations
-  booking           Booking   @relation(fields: [bookingId], references: [id])
-  ticketType        TicketType @relation(fields: [ticketTypeId], references: [id])
-  section           VenueSection? @relation(fields: [sectionId], references: [id])
-}
-
 enum TicketStatus {
   VALID
   USED
   CANCELLED
   TRANSFERRED
   REFUNDED
-}
-
-// Booking Management
-model Booking {
-  id                String    @id @default(cuid())
-  userId            String?
-  eventId           String
-  bookingReference  String    @unique
-  quantity          Int
-  subtotal          Decimal
-  serviceFee        Decimal
-  tax               Decimal
-  totalAmount       Decimal
-  status            BookingStatus @default(PENDING)
-  paymentId         String?   @unique
-  vivaOrderCode     String?   @unique
-  customerEmail     String
-  customerPhone     String?
-  customerName      String
-  notes             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  expiresAt         DateTime?
-  completedAt       DateTime?
-  
-  // Relations
-  user              User?     @relation(fields: [userId], references: [id])
-  event             Event     @relation(fields: [eventId], references: [id])
-  tickets           Ticket[]
-  payment           Payment?  @relation(fields: [paymentId], references: [id])
-  refund            Refund?
 }
 
 enum BookingStatus {
@@ -210,24 +302,6 @@ enum BookingStatus {
   CANCELLED
   REFUNDED
   EXPIRED
-}
-
-// Payment Management
-model Payment {
-  id                String    @id @default(cuid())
-  amount            Decimal
-  currency          String    @default("EUR")
-  method            PaymentMethodType
-  status            PaymentStatus @default(PENDING)
-  gatewayId         String?
-  gatewayResponse   Json?
-  processedAt       DateTime?
-  failureReason     String?
-  createdAt         DateTime  @default(now())
-
-  // Relations
-  booking           Booking?
-  refund            Refund?
 }
 
 enum PaymentMethodType {
@@ -247,84 +321,12 @@ enum PaymentStatus {
   PARTIALLY_REFUNDED
 }
 
-model PaymentMethod {
-  id                String    @id @default(cuid())
-  userId            String
-  type              PaymentMethodType
-  last4             String?
-  brand             String?
-  expiryMonth       Int?
-  expiryYear        Int?
-  isDefault         Boolean   @default(false)
-  gatewayToken      String?
-  
-  // Relations
-  user              User      @relation(fields: [userId], references: [id])
-}
-
-model Refund {
-  id                String    @id @default(cuid())
-  bookingId         String    @unique
-  paymentId         String    @unique
-  amount            Decimal
-  reason            String
-  status            RefundStatus @default(PENDING)
-  processedAt       DateTime?
-  gatewayId         String?
-  
-  // Relations
-  booking           Booking   @relation(fields: [bookingId], references: [id])
-  payment           Payment   @relation(fields: [paymentId], references: [id])
-}
-
 enum RefundStatus {
   PENDING
   APPROVED
   REJECTED
   PROCESSED
   FAILED
-}
-
-// User Engagement
-model Wishlist {
-  id                String    @id @default(cuid())
-  userId            String
-  eventId           String
-  createdAt         DateTime  @default(now())
-  
-  // Relations
-  user              User      @relation(fields: [userId], references: [id])
-  
-  @@unique([userId, eventId])
-}
-
-model Review {
-  id                String    @id @default(cuid())
-  userId            String
-  eventId           String
-  rating            Int
-  comment           String?
-  createdAt         DateTime  @default(now())
-  
-  // Relations
-  user              User      @relation(fields: [userId], references: [id])
-  event             Event     @relation(fields: [eventId], references: [id])
-  
-  @@unique([userId, eventId])
-}
-
-model Notification {
-  id                String    @id @default(cuid())
-  userId            String
-  type              NotificationType
-  title             String
-  message           String
-  data              Json?
-  isRead            Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  
-  // Relations
-  user              User      @relation(fields: [userId], references: [id])
 }
 
 enum NotificationType {
@@ -338,48 +340,7 @@ enum NotificationType {
   SYSTEM
 }
 
-// Promotion Management
-model PromoCode {
-  id                String    @id @default(cuid())
-  code              String    @unique
-  description       String?
-  discountType      DiscountType
-  discountValue     Decimal
-  minPurchase       Decimal?
-  maxDiscount       Decimal?
-  usageLimit        Int?
-  usedCount         Int       @default(0)
-  validFrom         DateTime
-  validUntil        DateTime
-  eventIds          Json
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-}
-
 enum DiscountType {
   PERCENTAGE
   FIXED
-}
-
-// Admin Configuration
-model Configuration {
-  id                String    @id @default(cuid())
-  key               String    @unique
-  value             Json
-  description       String?
-  updatedAt         DateTime  @updatedAt
-}
-
-// Audit Log
-model AuditLog {
-  id                String    @id @default(cuid())
-  userId            String?
-  action            String
-  entity            String
-  entityId          String?
-  oldValues         Json?
-  newValues         Json?
-  ipAddress         String?
-  userAgent         String?
-  createdAt         DateTime  @default(now())
 }
