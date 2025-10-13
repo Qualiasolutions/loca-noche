@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         status: 'CONFIRMED'
       },
       include: {
-        event: {
+        Event: {
           select: {
             title: true
           }
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         customer.totalSpent += Number(booking.totalAmount)
         if (booking.createdAt > customer.lastBookingDate) {
           customer.lastBookingDate = booking.createdAt
-          customer.lastEvent = booking.event?.title || 'N/A'
+          customer.lastEvent = booking.Event?.title || 'N/A'
         }
       } else {
         customerMap.set(key, {
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
           lastBookingDate: booking.createdAt,
           totalBookings: 1,
           totalSpent: Number(booking.totalAmount),
-          lastEvent: booking.event?.title || 'N/A'
+          lastEvent: booking.Event?.title || 'N/A'
         })
       }
     })
