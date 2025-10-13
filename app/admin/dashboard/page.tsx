@@ -792,13 +792,16 @@ export default function AdminDashboard() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-6">
-                    <Alert>
-                      <Calendar className="h-4 w-4" />
-                      <AlertTitle>Bookings Management</AlertTitle>
-                      <AlertDescription>
-                        Connect to booking API to display real booking data. Currently showing placeholder content.
-                      </AlertDescription>
-                    </Alert>
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Calendar className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Booking Data Loading...</h3>
+                      <p className="text-gray-500 mb-4">Connecting to booking database to display real data.</p>
+                      <div className="flex justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -1021,23 +1024,20 @@ export default function AdminDashboard() {
                     value={stats?.totalCustomers || 0}
                     icon={Users}
                     description="All time customers"
-                    trend={{ value: 15, isPositive: true }}
                     color="purple"
                   />
                   <MetricCard
                     title="New This Month"
-                    value="156"
+                    value="--"
                     icon={User}
                     description="New signups"
-                    trend={{ value: 23, isPositive: true }}
                     color="blue"
                   />
                   <MetricCard
                     title="Repeat Customers"
-                    value="412"
+                    value="--"
                     icon={Star}
                     description="Returning users"
-                    trend={{ value: 8, isPositive: true }}
                     color="green"
                   />
                 </div>
@@ -1074,77 +1074,90 @@ export default function AdminDashboard() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-6">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-b border-gray-200">
-                            <TableHead className="font-semibold text-gray-900">Customer</TableHead>
-                            <TableHead className="font-semibold text-gray-900">Contact</TableHead>
-                            <TableHead className="font-semibold text-gray-900">Total Bookings</TableHead>
-                            <TableHead className="font-semibold text-gray-900">Total Spent</TableHead>
-                            <TableHead className="font-semibold text-gray-900">Last Event</TableHead>
-                            <TableHead className="font-semibold text-gray-900">Member Since</TableHead>
-                            <TableHead className="font-semibold text-gray-900">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {customers.map((customer) => (
-                            <TableRow key={customer.id} className="hover:bg-purple-50/50 transition-colors border-b border-gray-100">
-                              <TableCell>
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="w-8 h-8">
-                                    <AvatarImage src="" />
-                                    <AvatarFallback className="text-xs">
-                                      {customer.name.split(' ').map(n => n[0]).join('')}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <div className="font-medium text-gray-900">{customer.name}</div>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1 text-sm">
-                                    <Mail className="h-3 w-3 text-gray-400" />
-                                    {customer.email}
-                                  </div>
-                                  <div className="flex items-center gap-1 text-sm text-gray-500">
-                                    <Phone className="h-3 w-3" />
-                                    {customer.phone}
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium">{customer.totalBookings}</TableCell>
-                              <TableCell className="font-semibold text-purple-600">{formatCurrency(customer.totalSpent)}</TableCell>
-                              <TableCell>{customer.lastEvent}</TableCell>
-                              <TableCell className="text-sm text-gray-600">
-                                {new Date(customer.memberSince).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="hover:bg-gray-100">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent>
-                                    <DropdownMenuItem>
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      View History
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                      <Edit className="h-4 w-4 mr-2" />
-                                      Edit Customer
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
+                    {customers.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Users className="h-8 w-8 text-purple-600" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Customer Data Loading...</h3>
+                        <p className="text-gray-500 mb-4">Connecting to customer database to display real data.</p>
+                        <div className="flex justify-center">
+                          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-b border-gray-200">
+                              <TableHead className="font-semibold text-gray-900">Customer</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Contact</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Total Bookings</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Total Spent</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Last Event</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Member Since</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Actions</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableHeader>
+                          <TableBody>
+                            {customers.map((customer) => (
+                              <TableRow key={customer.id} className="hover:bg-purple-50/50 transition-colors border-b border-gray-100">
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="w-8 h-8">
+                                      <AvatarImage src="" />
+                                      <AvatarFallback className="text-xs">
+                                        {customer.name.split(' ').map(n => n[0]).join('')}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium text-gray-900">{customer.name}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1 text-sm">
+                                      <Mail className="h-3 w-3 text-gray-400" />
+                                      {customer.email}
+                                    </div>
+                                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                                      <Phone className="h-3 w-3" />
+                                      {customer.phone}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-medium">{customer.totalBookings}</TableCell>
+                                <TableCell className="font-semibold text-purple-600">{formatCurrency(customer.totalSpent)}</TableCell>
+                                <TableCell>{customer.lastEvent}</TableCell>
+                                <TableCell className="text-sm text-gray-600">
+                                  {new Date(customer.memberSince).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="hover:bg-gray-100">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                      <DropdownMenuItem>
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        View History
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Edit Customer
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -1154,7 +1167,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <MetricCard
                     title="Active Events"
-                    value="2"
+                    value="--"
                     icon={Calendar}
                     description="Currently running"
                     color="blue"
@@ -1164,126 +1177,26 @@ export default function AdminDashboard() {
                     value={stats?.totalBookings || 0}
                     icon={Ticket}
                     description="All events"
-                    trend={{ value: 18, isPositive: true }}
                     color="green"
                   />
                   <MetricCard
                     title="Total Capacity"
-                    value="2,000"
+                    value="--"
                     icon={Users}
                     description="Combined capacity"
                     color="purple"
                   />
                 </div>
 
-                <div className="space-y-6">
-                  <Card className="shadow-xl border-0">
-                    <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 border-b border-orange-100">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 rounded-lg">
-                          <Calendar className="h-6 w-6 text-orange-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-xl text-gray-900">Event 1: Oktoberfest - Minus One</CardTitle>
-                          <CardDescription className="text-gray-600">
-                            Manage event details and ticket pricing
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Date</label>
-                            <Input type="date" defaultValue="2024-10-11" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Time</label>
-                            <Input type="time" defaultValue="17:00" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Ticket Price (€)</label>
-                            <Input type="number" defaultValue="10" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Ticket Price (€)</label>
-                            <Input type="number" defaultValue="5" className="w-full" />
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Tickets Available</label>
-                            <Input type="number" defaultValue="800" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Tickets Available</label>
-                            <Input type="number" defaultValue="200" className="w-full" />
-                          </div>
-                          <div className="pt-4">
-                            <Button className="w-full bg-orange-600 hover:bg-orange-700">
-                              <Settings className="w-4 h-4 mr-2" />
-                              Update Event
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-xl border-0">
-                    <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <Calendar className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-xl text-gray-900">Event 2: Oktoberfest - Giannis Margaris</CardTitle>
-                          <CardDescription className="text-gray-600">
-                            Manage event details and ticket pricing
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Date</label>
-                            <Input type="date" defaultValue="2024-10-12" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Time</label>
-                            <Input type="time" defaultValue="17:00" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Ticket Price (€)</label>
-                            <Input type="number" defaultValue="10" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Ticket Price (€)</label>
-                            <Input type="number" defaultValue="5" className="w-full" />
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Tickets Available</label>
-                            <Input type="number" defaultValue="800" className="w-full" />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Tickets Available</label>
-                            <Input type="number" defaultValue="200" className="w-full" />
-                          </div>
-                          <div className="pt-4">
-                            <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                              <Settings className="w-4 h-4 mr-2" />
-                              Update Event
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="h-8 w-8 text-orange-600" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Event Management Loading...</h3>
+                  <p className="text-gray-500 mb-4">Connecting to event database to display real event data.</p>
+                  <div className="flex justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                  </div>
                 </div>
               </TabsContent>
 
