@@ -27,6 +27,38 @@ export async function GET(request: NextRequest) {
         break
     }
 
+    // First check if there are any payments at all
+    const paymentCount = await prisma.payment.count()
+
+    // If no payments, return empty analytics
+    if (paymentCount === 0) {
+      return NextResponse.json({
+        summary: {
+          totalRevenue: 0,
+          successfulPayments: 0,
+          failedPayments: 0,
+          pendingPayments: 0,
+          refundedPayments: 0,
+          totalTransactions: 0,
+          averageTransactionValue: 0,
+          paymentSuccessRate: 0,
+          conversionRate: 0
+        },
+        breakdown: {
+          byStatus: [],
+          byMethod: []
+        },
+        recentPayments: [],
+        trends: [],
+        metrics: {
+          totalBookings: await prisma.booking.count(),
+          bookingToPaymentConversion: 0,
+          paymentFailureRate: 0,
+          refundRate: 0
+        }
+      })
+    }
+
     // Get comprehensive payment analytics
     const [
       totalRevenue,
