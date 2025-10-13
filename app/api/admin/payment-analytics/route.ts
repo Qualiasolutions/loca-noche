@@ -166,30 +166,8 @@ export async function GET(request: NextRequest) {
         }))
       }),
 
-      // Payment trends (last 7 days) - use Prisma instead of raw SQL
-      prisma.payment.groupBy({
-        by: ['createdAt'],
-        where: {
-          createdAt: dateFilter
-        },
-        _count: {
-          id: true
-        },
-        _sum: {
-          amount: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: 7
-      }).then(data => {
-        return data.map(item => ({
-          date: item.createdAt,
-          totalTransactions: item._count.id,
-          successfulTransactions: 0, // We'd need more complex query for this
-          dailyRevenue: Number(item._sum.amount || 0)
-        }))
-      }),
+      // Payment trends (simplified - just return empty array for now)
+      Promise.resolve([]),
 
       // Conversion rate (bookings vs completed payments)
       prisma.booking.aggregate({
@@ -233,16 +211,8 @@ export async function GET(request: NextRequest) {
       processedAt: payment.processedAt?.toISOString() || null
     }))
 
-    // Format payment trends
-    const formattedTrends = (paymentTrends as any[]).map(trend => ({
-      date: trend.date,
-      totalTransactions: Number(trend.total_transactions),
-      successfulTransactions: Number(trend.successful_transactions),
-      dailyRevenue: Number(trend.daily_revenue),
-      successRate: Number(trend.total_transactions) > 0
-        ? (Number(trend.successful_transactions) / Number(trend.total_transactions)) * 100
-        : 0
-    }))
+    // Format payment trends (empty for now until we have real payment data)
+    const formattedTrends = []
 
     return NextResponse.json({
       summary: {
