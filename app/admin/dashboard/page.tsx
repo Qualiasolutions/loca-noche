@@ -22,7 +22,32 @@ import {
   Trash2,
   ChevronDown,
   LogOut,
-  User
+  User,
+  DollarSign,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
+  ArrowUpRight,
+  ArrowDownRight,
+  Zap,
+  Target,
+  BarChart3,
+  PieChart,
+  FileText,
+  Building2,
+  Globe,
+  Shield,
+  Smartphone,
+  Mail,
+  Phone,
+  Star,
+  Timer,
+  Sparkles,
+  Loader2,
+  Plus,
+  Ticket,
+  ArrowRightRight
 } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,6 +63,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface AdminStats {
   totalRevenue: number
@@ -258,44 +285,98 @@ export default function AdminDashboard() {
     return <Badge variant={variants[status] || "secondary"}>{status}</Badge>
   }
 
-  const StatCard = ({ title, value, icon: Icon, trend, color = "blue" }: {
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'success':
+      case 'confirmed':
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-500" />
+      case 'processing':
+        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'success':
+      case 'confirmed':
+        return 'text-green-600 bg-green-50 border-green-200'
+      case 'failed':
+        return 'text-red-600 bg-red-50 border-red-200'
+      case 'pending':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200'
+      case 'processing':
+        return 'text-blue-600 bg-blue-50 border-blue-200'
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200'
+    }
+  }
+
+  const MetricCard = ({ title, value, icon: Icon, description, trend, color = "blue" }: {
     title: string
     value: string | number
     icon: any
-    trend?: "up" | "down"
+    description?: string
+    trend?: {
+      value: number
+      isPositive: boolean
+    }
     color?: string
   }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={`h-4 w-4 text-${color}-600`} />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {trend && (
-          <div className="flex items-center text-xs text-muted-foreground">
-            {trend === "up" ? (
-              <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-            ) : (
-              <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
-            )}
-            <span className={trend === "up" ? "text-green-500" : "text-red-500"}>
-              {trend === "up" ? "+12%" : "-2.3%"}
-            </span>
-            from last event
+    <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
+      <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${color === 'green' ? 'from-green-400 to-emerald-600' : color === 'blue' ? 'from-blue-400 to-indigo-600' : color === 'purple' ? 'from-purple-400 to-pink-600' : 'from-orange-400 to-red-600'} opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-500`}></div>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <div className="flex items-center space-x-3">
+          <div className={`p-2 rounded-lg ${color === 'green' ? 'bg-green-100' : color === 'blue' ? 'bg-blue-100' : color === 'purple' ? 'bg-purple-100' : 'bg-orange-100'}`}>
+            <Icon className={`h-5 w-5 ${color === 'green' ? 'text-green-600' : color === 'blue' ? 'text-blue-600' : color === 'purple' ? 'text-purple-600' : 'text-orange-600'}`} />
           </div>
-        )}
-      </CardContent>
+          <div>
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
+          </div>
+        </div>
+      </CardHeader>
+      {(description || trend) && (
+        <CardContent className="pt-0">
+          {trend && (
+            <div className="flex items-center text-sm">
+              {trend.isPositive ? (
+                <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
+              ) : (
+                <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
+              )}
+              <span className={trend.isPositive ? "text-green-500" : "text-red-500"}>
+                {trend.isPositive ? "+" : ""}{trend.value}%
+              </span>
+              <span className="text-gray-500 ml-1">from last period</span>
+            </div>
+          )}
+          {description && (
+            <p className="text-sm text-gray-500 mt-1">{description}</p>
+          )}
+        </CardContent>
+      )}
     </Card>
   )
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="mb-8">
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {[...Array(4)].map((_, i) => (
-              <Card key={i}>
+              <Card key={i} className="shadow-lg">
                 <CardHeader>
                   <Skeleton className="h-4 w-20" />
                 </CardHeader>
@@ -306,18 +387,20 @@ export default function AdminDashboard() {
               </Card>
             ))}
           </div>
-          <Card>
+          <Card className="shadow-lg">
             <CardHeader>
               <Skeleton className="h-6 w-32" />
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="flex items-center space-x-4">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-8 w-20" />
                   </div>
                 ))}
               </div>
@@ -330,52 +413,80 @@ export default function AdminDashboard() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex flex-col">
+        {/* Enhanced Header */}
+        <header className="bg-white/80 backdrop-blur-md border-b border-gray-200/50 shadow-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <Link href="/">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="hover:bg-gray-100">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Site
                   </Button>
                 </Link>
                 <div className="flex items-center gap-3">
-                  <img
-                    src="https://www.locanoche.com/logo.png"
-                    alt="LocaNoche Logo"
-                    className="h-10 w-auto"
-                  />
+                  <div className="relative">
+                    <img
+                      src="https://www.locanoche.com/logo.png"
+                      alt="LocaNoche Logo"
+                      className="h-10 w-auto drop-shadow-md"
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900">LocaNoche Admin</h1>
-                    <p className="text-sm text-blue-600 font-medium">Welcome back, Tasos! 👋</p>
+                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                      LocaNoche Admin
+                      <Sparkles className="h-5 w-5 text-yellow-500" />
+                    </h1>
+                    <p className="text-sm text-blue-600 font-medium flex items-center gap-1">
+                      <Target className="h-3 w-3" />
+                      Welcome back, Tasos!
+                    </p>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-500">
+              <div className="flex items-center gap-2 lg:gap-4">
+                <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-full">
+                  <Timer className="w-4 h-4" />
                   Last updated: {new Date().toLocaleTimeString()}
-                </span>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleRefresh}
                   disabled={refreshing}
+                  className="hover:bg-gray-50"
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <User className="w-4 h-4 mr-2" />
+                    <Button variant="outline" size="sm" className="hover:bg-gray-50">
+                      <Avatar className="w-6 h-6 mr-2">
+                        <AvatarImage src="" />
+                        <AvatarFallback className="text-xs">T</AvatarFallback>
+                      </Avatar>
                       Tasos
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={handleLogout}>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Admin Account
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <User className="w-4 h-4 mr-2" />
+                      Profile Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Admin Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                       <LogOut className="w-4 h-4 mr-2" />
                       Logout
                     </DropdownMenuItem>
@@ -386,46 +497,52 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* Navigation */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-6">
-                <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                  <Activity className="w-4 h-4" />
-                  Dashboard
+        {/* Enhanced Navigation */}
+        <div className="bg-white/60 backdrop-blur-sm border-b border-gray-200/50 sticky top-16 z-40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 bg-gray-50/50 p-1 rounded-xl">
+                <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Dashboard</span>
                 </TabsTrigger>
-                <TabsTrigger value="bookings" className="flex items-center gap-2">
+                <TabsTrigger value="bookings" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200">
                   <Calendar className="w-4 h-4" />
-                  Bookings
+                  <span className="hidden sm:inline">Bookings</span>
                 </TabsTrigger>
-                <TabsTrigger value="payments" className="flex items-center gap-2">
+                <TabsTrigger value="payments" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200">
                   <CreditCard className="w-4 h-4" />
-                  Payments
+                  <span className="hidden sm:inline">Payments</span>
                 </TabsTrigger>
-                <TabsTrigger value="customers" className="flex items-center gap-2">
+                <TabsTrigger value="customers" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200">
                   <Users className="w-4 h-4" />
-                  Customers
+                  <span className="hidden sm:inline">Customers</span>
                 </TabsTrigger>
-                <TabsTrigger value="events" className="flex items-center gap-2">
+                <TabsTrigger value="events" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200">
                   <Settings className="w-4 h-4" />
-                  Events
+                  <span className="hidden sm:inline">Events</span>
                 </TabsTrigger>
-                <TabsTrigger value="n8n" className="flex items-center gap-2">
-                  <Activity className="w-4 h-4" />
-                  N8N Status
+                <TabsTrigger value="n8n" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200">
+                  <Zap className="w-4 h-4" />
+                  <span className="hidden sm:inline">N8N</span>
                 </TabsTrigger>
               </TabsList>
 
               {/* Dashboard Content */}
               <TabsContent value="dashboard" className="mt-6 space-y-6">
                 {/* Enhanced Payment Analytics */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Payment Analytics</h2>
+                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-8 text-white shadow-2xl">
+                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+                    <div>
+                      <h2 className="text-3xl font-bold mb-2 flex items-center gap-2">
+                        <DollarSign className="h-8 w-8" />
+                        Payment Analytics
+                      </h2>
+                      <p className="text-blue-100">Real-time insights into your revenue and payment performance</p>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Select value={paymentTimeframe} onValueChange={setPaymentTimeframe}>
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-40 bg-white/10 border-white/20 text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -438,79 +555,75 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white rounded-lg p-4 border border-blue-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Completed Payments</p>
-                          <p className="text-2xl font-bold text-green-600">
-                            {paymentAnalytics?.summary.successfulPayments || 0}
-                          </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-white/20 rounded-lg">
+                          <CheckCircle2 className="h-6 w-6 text-green-300" />
                         </div>
-                        <div className="bg-green-100 rounded-full p-3">
-                          <CreditCard className="h-6 w-6 text-green-600" />
+                        <div className="text-right">
+                          <p className="text-3xl font-bold">{paymentAnalytics?.summary.successfulPayments || 0}</p>
+                          <p className="text-sm text-green-100">Completed</p>
                         </div>
                       </div>
+                      <div className="text-sm text-white/80">Successful Payments</div>
                     </div>
 
-                    <div className="bg-white rounded-lg p-4 border border-blue-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Failed Payments</p>
-                          <p className="text-2xl font-bold text-red-600">
-                            {paymentAnalytics?.summary.failedPayments || 0}
-                          </p>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-white/20 rounded-lg">
+                          <XCircle className="h-6 w-6 text-red-300" />
                         </div>
-                        <div className="bg-red-100 rounded-full p-3">
-                          <Activity className="h-6 w-6 text-red-600" />
+                        <div className="text-right">
+                          <p className="text-3xl font-bold">{paymentAnalytics?.summary.failedPayments || 0}</p>
+                          <p className="text-sm text-red-100">Failed</p>
                         </div>
                       </div>
+                      <div className="text-sm text-white/80">Failed Payments</div>
                     </div>
 
-                    <div className="bg-white rounded-lg p-4 border border-blue-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                          <p className="text-2xl font-bold text-blue-600">
-                            {paymentAnalytics?.summary.paymentSuccessRate.toFixed(1) || 0}%
-                          </p>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-white/20 rounded-lg">
+                          <Target className="h-6 w-6 text-yellow-300" />
                         </div>
-                        <div className="bg-blue-100 rounded-full p-3">
-                          <TrendingUp className="h-6 w-6 text-blue-600" />
+                        <div className="text-right">
+                          <p className="text-3xl font-bold">{paymentAnalytics?.summary.paymentSuccessRate.toFixed(1) || 0}%</p>
+                          <p className="text-sm text-yellow-100">Success</p>
                         </div>
                       </div>
+                      <div className="text-sm text-white/80">Payment Success Rate</div>
                     </div>
 
-                    <div className="bg-white rounded-lg p-4 border border-blue-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-                          <p className="text-2xl font-bold text-purple-600">
-                            {paymentAnalytics?.metrics.bookingToPaymentConversion.toFixed(1) || 0}%
-                          </p>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-white/20 rounded-lg">
+                          <TrendingUp className="h-6 w-6 text-purple-300" />
                         </div>
-                        <div className="bg-purple-100 rounded-full p-3">
-                          <Users className="h-6 w-6 text-purple-600" />
+                        <div className="text-right">
+                          <p className="text-3xl font-bold">{paymentAnalytics?.metrics.bookingToPaymentConversion.toFixed(1) || 0}%</p>
+                          <p className="text-sm text-purple-100">Conversion</p>
                         </div>
                       </div>
+                      <div className="text-sm text-white/80">Booking to Payment</div>
                     </div>
                   </div>
 
-                  {/* Real Revenue from Completed Payments */}
-                  <div className="bg-white rounded-lg p-4 border border-green-200 mb-4">
-                    <div className="flex items-center justify-between">
+                  {/* Real Revenue Highlight */}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                    <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-600">Actual Revenue (Completed Payments)</p>
-                        <p className="text-3xl font-bold text-green-600">
+                        <p className="text-lg font-medium text-white/90 mb-2">Actual Revenue from Completed Payments</p>
+                        <p className="text-4xl font-bold text-white">
                           {formatCurrency(paymentAnalytics?.summary.totalRevenue || 0)}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-white/70 mt-1">
                           From {paymentAnalytics?.summary.successfulPayments || 0} successful transactions
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-600">Average Transaction</p>
-                        <p className="text-xl font-semibold text-gray-900">
+                      <div className="text-center lg:text-right">
+                        <p className="text-lg font-medium text-white/90 mb-2">Average Transaction</p>
+                        <p className="text-2xl font-bold text-white">
                           {formatCurrency(paymentAnalytics?.summary.averageTransactionValue || 0)}
                         </p>
                       </div>
@@ -519,101 +632,123 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <StatCard
+                  <MetricCard
                     title="Total Bookings"
                     value={stats?.totalBookings || 0}
                     icon={Calendar}
-                    trend="up"
+                    description="All time bookings"
+                    trend={{ value: 12, isPositive: true }}
                     color="blue"
                   />
-                  <StatCard
+                  <MetricCard
                     title="Total Customers"
                     value={stats?.totalCustomers || 0}
                     icon={Users}
-                    trend="up"
+                    description="Unique customers"
+                    trend={{ value: 8, isPositive: true }}
                     color="purple"
                   />
-                  <StatCard
+                  <MetricCard
                     title="Pending Payments"
                     value={paymentAnalytics?.summary.pendingPayments || 0}
-                    icon={Activity}
+                    icon={Clock}
+                    description="Awaiting completion"
                     color="yellow"
                   />
-                  <StatCard
+                  <MetricCard
                     title="Refunded"
                     value={paymentAnalytics?.summary.refundedPayments || 0}
-                    icon={CreditCard}
+                    icon={RefreshCw}
+                    description="Processed refunds"
                     color="orange"
                   />
                 </div>
 
-                <Card>
-                  <CardHeader>
+                {/* Recent Completed Payments */}
+                <Card className="shadow-xl border-0">
+                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
                     <div className="flex justify-between items-center">
-                      <div>
-                        <CardTitle>Recent Completed Payments 💰</CardTitle>
-                        <CardDescription>
-                          Latest successful payment transactions - REAL paid customers
-                        </CardDescription>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <DollarSign className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl text-gray-900">Recent Completed Payments</CardTitle>
+                          <CardDescription className="text-gray-600">
+                            Latest successful payment transactions from real paying customers
+                          </CardDescription>
+                        </div>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setActiveTab('payments')}>
+                      <Button variant="outline" size="sm" onClick={() => setActiveTab('payments')} className="hover:bg-green-50">
                         View All Payments
+                        <ArrowRightRight className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-6">
                     {paymentAnalytics?.recentPayments.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500">No completed payments found in the selected timeframe.</p>
-                        <p className="text-sm text-gray-400 mt-2">
-                          This means no customers have successfully completed payment yet.
-                        </p>
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <CreditCard className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No completed payments yet</h3>
+                        <p className="text-gray-500">No customers have successfully completed payment in the selected timeframe.</p>
                       </div>
                     ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Order Code</TableHead>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Event</TableHead>
-                            <TableHead>Amount</TableHead>
-                            <TableHead>Method</TableHead>
-                            <TableHead>Completed</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {paymentAnalytics?.recentPayments.map((payment) => (
-                            <TableRow key={payment.id} className="bg-green-50">
-                              <TableCell className="font-mono text-sm font-medium">
-                                {payment.orderCode}
-                              </TableCell>
-                              <TableCell>
-                                <div>
-                                  <div className="font-medium">{payment.customerName}</div>
-                                  <div className="text-sm text-gray-500">{payment.customerEmail}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell>{payment.event}</TableCell>
-                              <TableCell className="font-bold text-green-600">
-                                {formatCurrency(payment.amount)}
-                              </TableCell>
-                              <TableCell>{payment.method}</TableCell>
-                              <TableCell>
-                                {payment.processedAt
-                                  ? formatDate(payment.processedAt)
-                                  : formatDate(payment.date)
-                                }
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="default" className="bg-green-100 text-green-800">
-                                  ✅ {payment.status}
-                                </Badge>
-                              </TableCell>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-b border-gray-200">
+                              <TableHead className="font-semibold text-gray-900">Order Code</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Customer</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Event</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Amount</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Method</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Completed</TableHead>
+                              <TableHead className="font-semibold text-gray-900">Status</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {paymentAnalytics?.recentPayments.map((payment) => (
+                              <TableRow key={payment.id} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
+                                <TableCell className="font-mono text-sm font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    {payment.orderCode}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium text-gray-900">{payment.customerName}</div>
+                                    <div className="text-sm text-gray-500">{payment.customerEmail}</div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{payment.event}</TableCell>
+                                <TableCell className="font-bold text-green-600">
+                                  {formatCurrency(payment.amount)}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary" className="bg-gray-100">
+                                    {payment.method}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm text-gray-600">
+                                  {payment.processedAt
+                                    ? formatDate(payment.processedAt)
+                                    : formatDate(payment.date)
+                                  }
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    {payment.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -621,36 +756,42 @@ export default function AdminDashboard() {
 
               {/* Bookings Content */}
               <TabsContent value="bookings" className="mt-6 space-y-6">
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <CardTitle>All Bookings</CardTitle>
-                        <CardDescription>
-                          Manage and monitor all ticket bookings
-                        </CardDescription>
+                <Card className="shadow-xl border-0">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Calendar className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl text-gray-900">All Bookings</CardTitle>
+                          <CardDescription className="text-gray-600">
+                            Manage and monitor all ticket bookings
+                          </CardDescription>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
                           <Search className="w-4 h-4 text-gray-400" />
                           <Input
                             placeholder="Search bookings..."
-                            className="w-64"
+                            className="border-0 focus:ring-0 w-full sm:w-48"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                           />
                         </div>
-                        <Button variant="outline">
+                        <Button variant="outline" className="bg-white hover:bg-gray-50">
                           <Filter className="w-4 h-4 mr-2" />
                           Filter
                         </Button>
-                        <Button>
-                          Add Manual Booking
+                        <Button className="bg-blue-600 hover:bg-blue-700">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Booking
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-6">
                     <Alert>
                       <Calendar className="h-4 w-4" />
                       <AlertTitle>Bookings Management</AlertTitle>
@@ -665,12 +806,18 @@ export default function AdminDashboard() {
               {/* Payments Content */}
               <TabsContent value="payments" className="mt-6 space-y-6">
                 {/* Payment Analytics Header */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Real Payment Analytics 💳</h2>
+                <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl p-8 text-white shadow-2xl">
+                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+                    <div>
+                      <h2 className="text-3xl font-bold mb-2 flex items-center gap-2">
+                        <CreditCard className="h-8 w-8" />
+                        Real Payment Analytics
+                      </h2>
+                      <p className="text-green-100">Comprehensive insights into payment performance and trends</p>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Select value={paymentTimeframe} onValueChange={setPaymentTimeframe}>
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-40 bg-white/10 border-white/20 text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -683,172 +830,185 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-lg p-4 border border-green-200">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          {formatCurrency(paymentAnalytics?.summary.totalRevenue || 0)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          From {paymentAnalytics?.summary.successfulPayments || 0} completed payments
-                        </p>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 text-center">
+                      <p className="text-lg font-medium text-white/90 mb-2">Total Revenue</p>
+                      <p className="text-3xl font-bold text-white mb-1">
+                        {formatCurrency(paymentAnalytics?.summary.totalRevenue || 0)}
+                      </p>
+                      <p className="text-sm text-white/70">
+                        {paymentAnalytics?.summary.successfulPayments || 0} payments
+                      </p>
                     </div>
 
-                    <div className="bg-white rounded-lg p-4 border border-blue-200">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                        <p className="text-2xl font-bold text-blue-600">
-                          {paymentAnalytics?.summary.paymentSuccessRate.toFixed(1) || 0}%
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {paymentAnalytics?.summary.successfulPayments || 0} of {paymentAnalytics?.summary.totalTransactions || 0} successful
-                        </p>
-                      </div>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 text-center">
+                      <p className="text-lg font-medium text-white/90 mb-2">Success Rate</p>
+                      <p className="text-3xl font-bold text-white mb-1">
+                        {paymentAnalytics?.summary.paymentSuccessRate.toFixed(1) || 0}%
+                      </p>
+                      <p className="text-sm text-white/70">
+                        {paymentAnalytics?.summary.successfulPayments || 0} of {paymentAnalytics?.summary.totalTransactions || 0}
+                      </p>
                     </div>
 
-                    <div className="bg-white rounded-lg p-4 border border-purple-200">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-gray-600">Average Transaction</p>
-                        <p className="text-2xl font-bold text-purple-600">
-                          {formatCurrency(paymentAnalytics?.summary.averageTransactionValue || 0)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Per successful payment
-                        </p>
-                      </div>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 text-center">
+                      <p className="text-lg font-medium text-white/90 mb-2">Average Transaction</p>
+                      <p className="text-3xl font-bold text-white mb-1">
+                        {formatCurrency(paymentAnalytics?.summary.averageTransactionValue || 0)}
+                      </p>
+                      <p className="text-sm text-white/70">Per successful payment</p>
                     </div>
 
-                    <div className="bg-white rounded-lg p-4 border border-orange-200">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-                        <p className="text-2xl font-bold text-orange-600">
-                          {paymentAnalytics?.metrics.bookingToPaymentConversion.toFixed(1) || 0}%
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {paymentAnalytics?.metrics.totalBookings || 0} bookings → {paymentAnalytics?.summary.successfulPayments || 0} payments
-                        </p>
-                      </div>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 text-center">
+                      <p className="text-lg font-medium text-white/90 mb-2">Conversion Rate</p>
+                      <p className="text-3xl font-bold text-white mb-1">
+                        {paymentAnalytics?.metrics.bookingToPaymentConversion.toFixed(1) || 0}%
+                      </p>
+                      <p className="text-sm text-white/70">
+                        {paymentAnalytics?.metrics.totalBookings || 0} → {paymentAnalytics?.summary.successfulPayments || 0}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Payment Status Breakdown */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <Card className="border-green-200">
-                    <CardHeader>
-                      <CardTitle className="text-lg text-green-600">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="shadow-xl border-0 border-green-200">
+                    <CardHeader className="text-center">
+                      <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                        <CheckCircle2 className="h-6 w-6 text-green-600" />
+                      </div>
+                      <CardTitle className="text-2xl font-bold text-green-600">
                         {paymentAnalytics?.summary.successfulPayments || 0}
                       </CardTitle>
-                      <CardDescription>✅ Completed Payments</CardDescription>
+                      <CardDescription className="text-gray-600">Completed Payments</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600">
+                    <CardContent className="text-center">
+                      <p className="text-lg font-semibold text-gray-900">
                         {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'COMPLETED')?.totalAmount || 0)}
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-red-200">
-                    <CardHeader>
-                      <CardTitle className="text-lg text-red-600">
+                  <Card className="shadow-xl border-0 border-red-200">
+                    <CardHeader className="text-center">
+                      <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
+                        <XCircle className="h-6 w-6 text-red-600" />
+                      </div>
+                      <CardTitle className="text-2xl font-bold text-red-600">
                         {paymentAnalytics?.summary.failedPayments || 0}
                       </CardTitle>
-                      <CardDescription>❌ Failed Payments</CardDescription>
+                      <CardDescription className="text-gray-600">Failed Payments</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600">
+                    <CardContent className="text-center">
+                      <p className="text-lg font-semibold text-gray-900">
                         {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'FAILED')?.totalAmount || 0)}
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-yellow-200">
-                    <CardHeader>
-                      <CardTitle className="text-lg text-yellow-600">
+                  <Card className="shadow-xl border-0 border-yellow-200">
+                    <CardHeader className="text-center">
+                      <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-3">
+                        <Clock className="h-6 w-6 text-yellow-600" />
+                      </div>
+                      <CardTitle className="text-2xl font-bold text-yellow-600">
                         {paymentAnalytics?.summary.pendingPayments || 0}
                       </CardTitle>
-                      <CardDescription>⏳ Pending Payments</CardDescription>
+                      <CardDescription className="text-gray-600">Pending Payments</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600">
+                    <CardContent className="text-center">
+                      <p className="text-lg font-semibold text-gray-900">
                         {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'PENDING')?.totalAmount || 0)}
                       </p>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-orange-200">
-                    <CardHeader>
-                      <CardTitle className="text-lg text-orange-600">
+                  <Card className="shadow-xl border-0 border-orange-200">
+                    <CardHeader className="text-center">
+                      <div className="mx-auto w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-3">
+                        <RefreshCw className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <CardTitle className="text-2xl font-bold text-orange-600">
                         {paymentAnalytics?.summary.refundedPayments || 0}
                       </CardTitle>
-                      <CardDescription>🔄 Refunded</CardDescription>
+                      <CardDescription className="text-gray-600">Refunded</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600">
+                    <CardContent className="text-center">
+                      <p className="text-lg font-semibold text-gray-900">
                         {formatCurrency(paymentAnalytics?.breakdown.byStatus.find(s => s.status === 'REFUNDED')?.totalAmount || 0)}
                       </p>
                     </CardContent>
                   </Card>
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Payment Transactions</CardTitle>
-                    <CardDescription>
+                <Card className="shadow-xl border-0">
+                  <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                    <CardTitle className="text-xl text-gray-900">Payment Transactions</CardTitle>
+                    <CardDescription className="text-gray-600">
                       Recent VivaPayments transactions and their status
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Transaction ID</TableHead>
-                          <TableHead>Order Code</TableHead>
-                          <TableHead>Date/Time</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Method</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {payments.map((payment) => (
-                          <TableRow key={payment.id}>
-                            <TableCell className="font-mono text-sm">{payment.id}</TableCell>
-                            <TableCell className="font-mono text-sm">{payment.orderCode}</TableCell>
-                            <TableCell>{formatDate(payment.date)}</TableCell>
-                            <TableCell>{payment.customerName}</TableCell>
-                            <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
-                            <TableCell>{payment.method}</TableCell>
-                            <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                  <DropdownMenuItem>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View Details
-                                  </DropdownMenuItem>
-                                  {payment.status === 'FAILED' && (
-                                    <DropdownMenuItem>
-                                      <RefreshCw className="h-4 w-4 mr-2" />
-                                      Retry Payment
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-b border-gray-200">
+                            <TableHead className="font-semibold text-gray-900">Transaction ID</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Order Code</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Date/Time</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Customer</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Amount</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Method</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Status</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Actions</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {payments.map((payment) => (
+                            <TableRow key={payment.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                              <TableCell className="font-mono text-sm">{payment.id}</TableCell>
+                              <TableCell className="font-mono text-sm">{payment.orderCode}</TableCell>
+                              <TableCell className="text-sm text-gray-600">{formatDate(payment.date)}</TableCell>
+                              <TableCell className="font-medium">{payment.customerName}</TableCell>
+                              <TableCell className="font-semibold">{formatCurrency(payment.amount)}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="bg-gray-100">
+                                  {payment.method}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(payment.status)}
+                                  <span className="text-sm">{payment.status}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="hover:bg-gray-100">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent>
+                                    <DropdownMenuItem>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    {payment.status === 'FAILED' && (
+                                      <DropdownMenuItem>
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Retry Payment
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -856,99 +1016,135 @@ export default function AdminDashboard() {
               {/* Customers Content */}
               <TabsContent value="customers" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">{stats?.totalCustomers || 0}</CardTitle>
-                      <CardDescription>Total Customers</CardDescription>
-                    </CardHeader>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">156</CardTitle>
-                      <CardDescription>New This Month</CardDescription>
-                    </CardHeader>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">412</CardTitle>
-                      <CardDescription>Repeat Customers</CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <MetricCard
+                    title="Total Customers"
+                    value={stats?.totalCustomers || 0}
+                    icon={Users}
+                    description="All time customers"
+                    trend={{ value: 15, isPositive: true }}
+                    color="purple"
+                  />
+                  <MetricCard
+                    title="New This Month"
+                    value="156"
+                    icon={User}
+                    description="New signups"
+                    trend={{ value: 23, isPositive: true }}
+                    color="blue"
+                  />
+                  <MetricCard
+                    title="Repeat Customers"
+                    value="412"
+                    icon={Star}
+                    description="Returning users"
+                    trend={{ value: 8, isPositive: true }}
+                    color="green"
+                  />
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <CardTitle>Customer Database</CardTitle>
-                        <CardDescription>
-                          Manage customer information and booking history
-                        </CardDescription>
+                <Card className="shadow-xl border-0">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Users className="h-6 w-6 text-purple-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl text-gray-900">Customer Database</CardTitle>
+                          <CardDescription className="text-gray-600">
+                            Manage customer information and booking history
+                          </CardDescription>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
                           <Search className="w-4 h-4 text-gray-400" />
                           <Input
                             placeholder="Search customers..."
-                            className="w-64"
+                            className="border-0 focus:ring-0 w-full sm:w-48"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                           />
                         </div>
-                        <Button variant="outline">
+                        <Button variant="outline" className="bg-white hover:bg-gray-50">
                           <Download className="w-4 h-4 mr-2" />
                           Export CSV
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Phone</TableHead>
-                          <TableHead>Total Bookings</TableHead>
-                          <TableHead>Total Spent</TableHead>
-                          <TableHead>Last Event</TableHead>
-                          <TableHead>Member Since</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {customers.map((customer) => (
-                          <TableRow key={customer.id}>
-                            <TableCell className="font-medium">{customer.name}</TableCell>
-                            <TableCell>{customer.email}</TableCell>
-                            <TableCell>{customer.phone}</TableCell>
-                            <TableCell>{customer.totalBookings}</TableCell>
-                            <TableCell className="font-medium">{formatCurrency(customer.totalSpent)}</TableCell>
-                            <TableCell>{customer.lastEvent}</TableCell>
-                            <TableCell>{new Date(customer.memberSince).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                  <DropdownMenuItem>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View History
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit Customer
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-b border-gray-200">
+                            <TableHead className="font-semibold text-gray-900">Customer</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Contact</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Total Bookings</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Total Spent</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Last Event</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Member Since</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Actions</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {customers.map((customer) => (
+                            <TableRow key={customer.id} className="hover:bg-purple-50/50 transition-colors border-b border-gray-100">
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarImage src="" />
+                                    <AvatarFallback className="text-xs">
+                                      {customer.name.split(' ').map(n => n[0]).join('')}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="font-medium text-gray-900">{customer.name}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <Mail className="h-3 w-3 text-gray-400" />
+                                    {customer.email}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-sm text-gray-500">
+                                    <Phone className="h-3 w-3" />
+                                    {customer.phone}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">{customer.totalBookings}</TableCell>
+                              <TableCell className="font-semibold text-purple-600">{formatCurrency(customer.totalSpent)}</TableCell>
+                              <TableCell>{customer.lastEvent}</TableCell>
+                              <TableCell className="text-sm text-gray-600">
+                                {new Date(customer.memberSince).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="hover:bg-gray-100">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent>
+                                    <DropdownMenuItem>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View History
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Customer
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -956,99 +1152,135 @@ export default function AdminDashboard() {
               {/* Events Content */}
               <TabsContent value="events" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">2</CardTitle>
-                      <CardDescription>Active Events</CardDescription>
-                    </CardHeader>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">{stats?.totalBookings || 0}</CardTitle>
-                      <CardDescription>Total Tickets Sold</CardDescription>
-                    </CardHeader>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">2,000</CardTitle>
-                      <CardDescription>Total Capacity</CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <MetricCard
+                    title="Active Events"
+                    value="2"
+                    icon={Calendar}
+                    description="Currently running"
+                    color="blue"
+                  />
+                  <MetricCard
+                    title="Tickets Sold"
+                    value={stats?.totalBookings || 0}
+                    icon={Ticket}
+                    description="All events"
+                    trend={{ value: 18, isPositive: true }}
+                    color="green"
+                  />
+                  <MetricCard
+                    title="Total Capacity"
+                    value="2,000"
+                    icon={Users}
+                    description="Combined capacity"
+                    color="purple"
+                  />
                 </div>
 
                 <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Event 1: Oktoberfest - Minus One</CardTitle>
-                      <CardDescription>Manage event details and ticket pricing</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Event Date</label>
-                          <Input type="date" defaultValue="2024-10-11" />
+                  <Card className="shadow-xl border-0">
+                    <CardHeader className="bg-gradient-to-r from-orange-50 to-red-50 border-b border-orange-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 rounded-lg">
+                          <Calendar className="h-6 w-6 text-orange-600" />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Event Time</label>
-                          <Input type="time" defaultValue="17:00" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Adult Ticket Price (€)</label>
-                          <Input type="number" defaultValue="10" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Child Ticket Price (€)</label>
-                          <Input type="number" defaultValue="5" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Adult Tickets Available</label>
-                          <Input type="number" defaultValue="800" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Child Tickets Available</label>
-                          <Input type="number" defaultValue="200" />
+                        <div>
+                          <CardTitle className="text-xl text-gray-900">Event 1: Oktoberfest - Minus One</CardTitle>
+                          <CardDescription className="text-gray-600">
+                            Manage event details and ticket pricing
+                          </CardDescription>
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <Button>Update Event</Button>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Date</label>
+                            <Input type="date" defaultValue="2024-10-11" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Time</label>
+                            <Input type="time" defaultValue="17:00" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Ticket Price (€)</label>
+                            <Input type="number" defaultValue="10" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Ticket Price (€)</label>
+                            <Input type="number" defaultValue="5" className="w-full" />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Tickets Available</label>
+                            <Input type="number" defaultValue="800" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Tickets Available</label>
+                            <Input type="number" defaultValue="200" className="w-full" />
+                          </div>
+                          <div className="pt-4">
+                            <Button className="w-full bg-orange-600 hover:bg-orange-700">
+                              <Settings className="w-4 h-4 mr-2" />
+                              Update Event
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Event 2: Oktoberfest - Giannis Margaris</CardTitle>
-                      <CardDescription>Manage event details and ticket pricing</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Event Date</label>
-                          <Input type="date" defaultValue="2024-10-12" />
+                  <Card className="shadow-xl border-0">
+                    <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Calendar className="h-6 w-6 text-blue-600" />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Event Time</label>
-                          <Input type="time" defaultValue="17:00" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Adult Ticket Price (€)</label>
-                          <Input type="number" defaultValue="10" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Child Ticket Price (€)</label>
-                          <Input type="number" defaultValue="5" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Adult Tickets Available</label>
-                          <Input type="number" defaultValue="800" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Child Tickets Available</label>
-                          <Input type="number" defaultValue="200" />
+                        <div>
+                          <CardTitle className="text-xl text-gray-900">Event 2: Oktoberfest - Giannis Margaris</CardTitle>
+                          <CardDescription className="text-gray-600">
+                            Manage event details and ticket pricing
+                          </CardDescription>
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <Button>Update Event</Button>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Date</label>
+                            <Input type="date" defaultValue="2024-10-12" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Event Time</label>
+                            <Input type="time" defaultValue="17:00" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Ticket Price (€)</label>
+                            <Input type="number" defaultValue="10" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Ticket Price (€)</label>
+                            <Input type="number" defaultValue="5" className="w-full" />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Adult Tickets Available</label>
+                            <Input type="number" defaultValue="800" className="w-full" />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-2 block">Child Tickets Available</label>
+                            <Input type="number" defaultValue="200" className="w-full" />
+                          </div>
+                          <div className="pt-4">
+                            <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                              <Settings className="w-4 h-4 mr-2" />
+                              Update Event
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1057,21 +1289,24 @@ export default function AdminDashboard() {
 
               {/* N8N Status Content */}
               <TabsContent value="n8n" className="mt-6 space-y-6">
-                <Alert>
-                  <Activity className="h-4 w-4" />
-                  <AlertTitle>Active Workflows</AlertTitle>
-                  <AlertDescription>
+                <Alert className="border-blue-200 bg-blue-50">
+                  <Zap className="h-4 w-4" />
+                  <AlertTitle className="text-blue-900">Active Workflows</AlertTitle>
+                  <AlertDescription className="text-blue-700">
                     N8N automation workflows for payment processing and ticket delivery
                   </AlertDescription>
                 </Alert>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {n8nStatus?.services.map((service) => (
-                    <Card key={service.name}>
+                    <Card key={service.name} className="shadow-lg border-0 hover:shadow-xl transition-shadow">
                       <CardHeader className="pb-3">
                         <div className="flex justify-between items-center">
-                          <CardTitle className="text-sm">{service.name}</CardTitle>
-                          {getStatusBadge(service.status)}
+                          <CardTitle className="text-sm font-medium text-gray-900">{service.name}</CardTitle>
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(service.status)}
+                            <span className="text-xs font-medium">{service.status}</span>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -1081,48 +1316,62 @@ export default function AdminDashboard() {
                   ))}
                 </div>
 
-                <Card>
-                  <CardHeader>
+                <Card className="shadow-xl border-0">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b border-purple-100">
                     <div className="flex justify-between items-center">
-                      <div>
-                        <CardTitle>Recent N8N Executions</CardTitle>
-                        <CardDescription>
-                          Workflow executions and their status
-                        </CardDescription>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Zap className="h-6 w-6 text-purple-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl text-gray-900">Recent N8N Executions</CardTitle>
+                          <CardDescription className="text-gray-600">
+                            Workflow executions and their status
+                          </CardDescription>
+                        </div>
                       </div>
                       <Button
                         variant="outline"
                         onClick={() => window.open('https://tasos8.app.n8n.cloud', '_blank')}
+                        className="hover:bg-purple-50"
                       >
+                        <Globe className="w-4 h-4 mr-2" />
                         Open N8N Dashboard
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Workflow</TableHead>
-                          <TableHead>Trigger</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Execution Time</TableHead>
-                          <TableHead>Order Code</TableHead>
-                          <TableHead>Customer Email</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {n8nStatus?.recentExecutions.map((execution, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{execution.workflow}</TableCell>
-                            <TableCell>{execution.trigger}</TableCell>
-                            <TableCell>{getStatusBadge(execution.status)}</TableCell>
-                            <TableCell>{execution.executionTime}s</TableCell>
-                            <TableCell className="font-mono text-sm">{execution.orderCode}</TableCell>
-                            <TableCell>{execution.customerEmail}</TableCell>
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-b border-gray-200">
+                            <TableHead className="font-semibold text-gray-900">Workflow</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Trigger</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Status</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Execution Time</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Order Code</TableHead>
+                            <TableHead className="font-semibold text-gray-900">Customer Email</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {n8nStatus?.recentExecutions.map((execution, index) => (
+                            <TableRow key={index} className="hover:bg-purple-50/50 transition-colors border-b border-gray-100">
+                              <TableCell className="font-medium">{execution.workflow}</TableCell>
+                              <TableCell>{execution.trigger}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(execution.status)}
+                                  <span className="text-sm">{execution.status}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">{execution.executionTime}s</TableCell>
+                              <TableCell className="font-mono text-sm">{execution.orderCode}</TableCell>
+                              <TableCell className="text-sm">{execution.customerEmail}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -1130,15 +1379,17 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="bg-white border-t border-gray-200 mt-auto">
-          <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Enhanced Footer */}
+        <footer className="bg-white/80 backdrop-blur-md border-t border-gray-200/50 mt-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 mb-2 md:mb-0">
                 © 2024 LocaNoche. All rights reserved.
               </div>
-              <div className="text-sm text-gray-500">
-                Powered by <span className="font-medium text-blue-600">Qualia Solutions</span>
+              <div className="text-sm text-gray-500 flex items-center gap-2">
+                Built with
+                <Sparkles className="h-4 w-4 text-yellow-500" />
+                <span className="font-medium text-blue-600">Qualia Solutions</span>
               </div>
             </div>
           </div>
