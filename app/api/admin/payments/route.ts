@@ -32,21 +32,23 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Get bookings separately to correlate data
-    const bookings = await prisma.booking.findMany({
-      where: {
-        paymentId: {
-          in: payments.map(p => p.id)
-        }
-      },
-      include: {
-        event: {
-          select: {
-            title: true
+    // Get bookings separately to correlate data (only if payments exist)
+    const bookings = payments.length > 0
+      ? await prisma.booking.findMany({
+          where: {
+            paymentId: {
+              in: payments.map(p => p.id)
+            }
+          },
+          include: {
+            Event: {
+              select: {
+                title: true
+              }
+            }
           }
-        }
-      }
-    })
+        })
+      : []
 
     // Create a map for quick lookup
     const bookingMap = new Map(bookings.map(b => [b.paymentId!, b]))
@@ -62,7 +64,7 @@ export async function GET(request: NextRequest) {
         amount: Number(payment.amount),
         method: payment.method.replace('_', ' '),
         status: payment.status,
-        event: booking?.event?.title || 'N/A'
+        event: booking?.Event?.title || 'N/A'
       }
     })
 

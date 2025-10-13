@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
             }
           },
           include: {
-            event: {
+            Event: {
               select: {
                 title: true,
                 eventDate: true
@@ -228,8 +228,8 @@ export async function GET(request: NextRequest) {
       amount: Number(payment.amount),
       method: payment.method.replace('_', ' '),
       status: payment.status,
-      event: payment.booking?.event.title || 'N/A',
-      eventDate: payment.booking?.event.eventDate || null,
+      event: payment.booking?.Event?.title || 'N/A',
+      eventDate: payment.booking?.Event?.eventDate || null,
       processedAt: payment.processedAt?.toISOString() || null
     }))
 
