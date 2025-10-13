@@ -223,7 +223,8 @@ model Payment {
   gatewayResponse   Json?
   processedAt       DateTime?
   failureReason     String?
-  
+  createdAt         DateTime  @default(now())
+
   // Relations
   booking           Booking?
   refund            Refund?
