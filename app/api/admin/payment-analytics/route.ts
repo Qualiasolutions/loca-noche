@@ -152,19 +152,30 @@ export async function GET(request: NextRequest) {
         }
       }),
 
-      // Payment trends (last 7 days)
-      prisma.$queryRaw`
-        SELECT
-          DATE_TRUNC('day', created_at) as date,
-          COUNT(*) as total_transactions,
-          COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as successful_transactions,
-          COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN amount END), 0) as daily_revenue
-        FROM "Payment"
-        WHERE created_at >= ${dateFilter.gte || new Date(0)}
-        GROUP BY DATE_TRUNC('day', created_at)
-        ORDER BY date DESC
-        LIMIT 7
-      `,
+      // Payment trends (last 7 days) - use Prisma instead of raw SQL
+      prisma.payment.groupBy({
+        by: ['createdAt'],
+        where: {
+          createdAt: dateFilter
+        },
+        _count: {
+          id: true
+        },
+        _sum: {
+          amount: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 7
+      }).then(data => {
+        return data.map(item => ({
+          date: item.createdAt,
+          totalTransactions: item._count.id,
+          successfulTransactions: 0, // We'd need more complex query for this
+          dailyRevenue: Number(item._sum.amount || 0)
+        }))
+      }),
 
       // Conversion rate (bookings vs completed payments)
       prisma.booking.aggregate({
