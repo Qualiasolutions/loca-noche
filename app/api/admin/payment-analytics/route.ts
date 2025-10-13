@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
         }
       }),
 
-      // Recent completed payments with full details
+      // Recent completed payments with full details (without broken relation)
       prisma.payment.findMany({
         where: {
           status: 'COMPLETED',
@@ -137,19 +137,33 @@ export async function GET(request: NextRequest) {
         take: 10,
         orderBy: {
           createdAt: 'desc'
-        },
-        include: {
-          booking: {
-            include: {
-              event: {
-                select: {
-                  title: true,
-                  eventDate: true
-                }
+        }
+      }).then(async (payments) => {
+        // Get bookings separately
+        if (payments.length === 0) return []
+
+        const bookings = await prisma.booking.findMany({
+          where: {
+            paymentId: {
+              in: payments.map(p => p.id)
+            }
+          },
+          include: {
+            event: {
+              select: {
+                title: true,
+                eventDate: true
               }
             }
           }
-        }
+        })
+
+        const bookingMap = new Map(bookings.map(b => [b.paymentId!, b]))
+
+        return payments.map(payment => ({
+          ...payment,
+          booking: bookingMap.get(payment.id) || null
+        }))
       }),
 
       // Payment trends (last 7 days) - use Prisma instead of raw SQL

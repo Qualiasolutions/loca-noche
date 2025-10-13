@@ -22,38 +22,49 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     const totalPayments = await prisma.payment.count({ where })
 
-    // Get payments with booking and event details
+    // Get payments without including relations (relation is broken)
     const payments = await prisma.payment.findMany({
       where,
       skip: (page - 1) * limit,
       take: limit,
       orderBy: {
         createdAt: 'desc'
+      }
+    })
+
+    // Get bookings separately to correlate data
+    const bookings = await prisma.booking.findMany({
+      where: {
+        paymentId: {
+          in: payments.map(p => p.id)
+        }
       },
       include: {
-        booking: {
-          include: {
-            event: {
-              select: {
-                title: true
-              }
-            }
+        event: {
+          select: {
+            title: true
           }
         }
       }
     })
 
+    // Create a map for quick lookup
+    const bookingMap = new Map(bookings.map(b => [b.paymentId!, b]))
+
     // Format payments data
-    const formattedPayments = payments.map(payment => ({
-      id: payment.id,
-      orderCode: payment.booking?.vivaOrderCode || 'N/A',
-      date: payment.createdAt.toISOString(),
-      customerName: payment.booking?.customerName || 'N/A',
-      amount: Number(payment.amount),
-      method: payment.method.replace('_', ' '),
-      status: payment.status,
-      event: payment.booking?.event.title || 'N/A'
-    }))
+    const formattedPayments = payments.map(payment => {
+      const booking = bookingMap.get(payment.id)
+      return {
+        id: payment.id,
+        orderCode: booking?.vivaOrderCode || 'N/A',
+        date: payment.createdAt.toISOString(),
+        customerName: booking?.customerName || 'N/A',
+        amount: Number(payment.amount),
+        method: payment.method.replace('_', ' '),
+        status: payment.status,
+        event: booking?.event?.title || 'N/A'
+      }
+    })
 
     return NextResponse.json({
       payments: formattedPayments,
