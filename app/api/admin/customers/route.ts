@@ -13,41 +13,65 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const search = searchParams.get('search')
 
-    // Get customers with aggregated booking data
-    const customersData = await prisma.$queryRaw`
-      WITH customer_stats AS (
-        SELECT
-          b.customer_email as email,
-          b.customer_name as name,
-          b.customer_phone as phone,
-          MIN(b.created_at) as member_since,
-          MAX(b.created_at) as last_booking_date,
-          COUNT(DISTINCT b.id) as total_bookings,
-          COALESCE(SUM(b.total_amount), 0) as total_spent,
-          MAX(e.title) as last_event
-        FROM bookings b
-        LEFT JOIN events e ON b.event_id = e.id
-        WHERE b.status = 'CONFIRMED'
-        GROUP BY b.customer_email, b.customer_name, b.customer_phone
-      )
-      SELECT * FROM customer_stats
-      ORDER BY last_booking_date DESC
-    ` as Array<{
-      email: string
+    // Get all bookings first
+    const bookings = await prisma.booking.findMany({
+      where: {
+        status: 'CONFIRMED'
+      },
+      include: {
+        event: {
+          select: {
+            title: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    // Aggregate customers from bookings
+    const customerMap = new Map<string, {
       name: string
+      email: string
       phone: string | null
-      member_since: Date
-      last_booking_date: Date
-      total_bookings: number
-      total_spent: number
-      last_event: string | null
-    }>
+      memberSince: Date
+      lastBookingDate: Date
+      totalBookings: number
+      totalSpent: number
+      lastEvent: string | null
+    }>()
+
+    bookings.forEach(booking => {
+      const key = booking.customerEmail
+      if (customerMap.has(key)) {
+        const customer = customerMap.get(key)!
+        customer.totalBookings += 1
+        customer.totalSpent += Number(booking.totalAmount)
+        if (booking.createdAt > customer.lastBookingDate) {
+          customer.lastBookingDate = booking.createdAt
+          customer.lastEvent = booking.event?.title || 'N/A'
+        }
+      } else {
+        customerMap.set(key, {
+          name: booking.customerName,
+          email: booking.customerEmail,
+          phone: booking.customerPhone,
+          memberSince: booking.createdAt,
+          lastBookingDate: booking.createdAt,
+          totalBookings: 1,
+          totalSpent: Number(booking.totalAmount),
+          lastEvent: booking.event?.title || 'N/A'
+        })
+      }
+    })
+
+    let customersData = Array.from(customerMap.values())
 
     // Filter customers if search term provided
-    let filteredCustomers = customersData
     if (search) {
       const searchLower = search.toLowerCase()
-      filteredCustomers = customersData.filter(customer =>
+      customersData = customersData.filter(customer =>
         customer.name.toLowerCase().includes(searchLower) ||
         customer.email.toLowerCase().includes(searchLower) ||
         (customer.phone && customer.phone.includes(search))
@@ -55,22 +79,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total count for pagination
-    const totalCustomers = filteredCustomers.length
+    const totalCustomers = customersData.length
 
     // Paginate results
     const startIndex = (page - 1) * limit
-    const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + limit)
+    const paginatedCustomers = customersData.slice(startIndex, startIndex + limit)
 
     // Format customers data
     const formattedCustomers = paginatedCustomers.map((customer, index) => ({
-      id: `customer-${index}`,
+      id: `customer-${startIndex + index}`,
       name: customer.name,
       email: customer.email,
       phone: customer.phone || 'N/A',
-      totalBookings: customer.total_bookings,
-      totalSpent: Number(customer.total_spent),
-      lastEvent: customer.last_event || 'N/A',
-      memberSince: customer.member_since.toISOString()
+      totalBookings: customer.totalBookings,
+      totalSpent: customer.totalSpent,
+      lastEvent: customer.lastEvent,
+      memberSince: customer.memberSince.toISOString()
     }))
 
     return NextResponse.json({
